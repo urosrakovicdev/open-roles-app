@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(npm install)",
+      "Bash(npm uninstall *)",
+      "Bash(npm ls *)",
+      "Bash(npm view *)",
+      "Bash(npm outdated *)",
+      "Bash(npm audit *)",
+      "Bash(npx drizzle-kit *)",
+      "Bash(npx next *)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(npx prettier *)",
+      "Bash(npx tsx *)",
+      "Bash(node *)",
+      "Bash(curl -s http://localhost:3000*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git switch *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git restore *)",
+      "Bash(git stash*)",
+      "Bash(git rev-parse *)",
+      "Bash(git ls-files*)",
+      "Bash(git check-ignore *)",
+      "Bash(git remote -v)"
+    ],
+    "deny": [
+      "Bash(git push*)",
+      "Bash(git commit*)",
+      "Bash(gh pr *)",
+      "Bash(npx auth *)",
+      "Read(./.env.local)",
+      "Read(./.env)"
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+/* Global styles. Tailwind CSS v4 is imported here (config-in-CSS).
+   Docs: https://tailwindcss.com/docs/installation/framework-guides/nextjs */
+@import "tailwindcss";
+
+/* Add design tokens / @theme customizations below as the UI grows. */

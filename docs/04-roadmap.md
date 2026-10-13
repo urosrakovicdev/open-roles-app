@@ -1,0 +1,229 @@
+# 04 · Roadmap (the worklist)
+
+Build in thin vertical slices. Each milestone ends in something runnable. Check
+items off (`- [x]`) as you go. After each milestone: run the checks in
+[`CLAUDE.md`](../CLAUDE.md#checks--run-after-every-milestone-and-before-saying-done),
+self-review against the checklist in [`03-architecture.md`](03-architecture.md#review-checklist),
+then stage and **ask the human to commit** (they commit by hand — see
+[`CLAUDE.md` › Git](../CLAUDE.md#git)).
+
+Vocabulary follows [`CONTEXT.md`](../CONTEXT.md): **Job** = a posting (URL says
+`/roles`), **Role** = a user permission.
+
+---
+
+## Setup status (human steps — done 2026-10-13)
+
+No secret values here. Everything below was verified in the setup session.
+
+- **Tooling:** Node 24.1.0 (LTS line), npm 11.3.0, git 2.27 (old but works).
+- **Neon:** project `open-roles`, AWS **eu-central-1 (Frankfurt)**, Postgres 18.
+  - Branch `production` (default) — **empty, untouched**; reserved for Vercel in M6.
+  - Branch `dev` (child of `production`) — what `.env.local` points at. All
+    M0–M5 migrations / seeds go here.
+- **`.env.local`:** `DATABASE_URL` = **pooled** (`-pooler`) string for the `dev`
+  branch, verified with `select 1`; `AUTH_SECRET` set (64 chars). Gitignored.
+  `.env.example` lists the same keys with placeholders.
+- **Dependencies:** `npm install` done (next 16.4.0, drizzle-orm 0.45.4,
+  next-auth 5.0.0-beta.32, @neondatabase/serverless 1.2.0). `npm audit`: 0 issues
+  in runtime deps; 9 in dev deps — look at them in M0.
+- **Database:** connection proven; public schema empty — no tables or migrations
+  yet (that's M0).
+- **GitHub:** private repo `urosrakovicdev/open-roles-app` added as `origin`.
+  Nothing pushed — the human pushes by hand.
+- **Claude Code permissions:** `.claude/settings.json` allows npm scripts and
+  install, named `npx` tools, `node`, local `curl`, and non-destructive git.
+  Denies `git commit`, `git push`, `gh pr`, `npx auth`, and reading `.env.local`.
+- **Skipped / deferred to M6:** Vercel project; set Vercel's function region to
+  **`fra1`** (Frankfurt) to match Neon; production `DATABASE_URL` (pooled
+  `production` branch) and a **new** production `AUTH_SECRET`, both set in Vercel.
+- **Gotcha:** `npx auth secret` now runs **Better Auth's** CLI. It writes
+  `BETTER_AUTH_SECRET` and clobbered `.env.example`. Generate secrets with
+  `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
+
+---
+
+## M0 · Boot the project
+
+- [ ] `npm install` (resolve current versions; fix any drift — e.g. ESLint flat
+      config for `eslint-config-next`, `drizzle-orm` major version and its
+      relations API, `next-auth` beta API). Record versions in **M0 notes** below.
+- [x] **Human step:** create a Neon project, put `DATABASE_URL` in `.env.local`;
+      generate `AUTH_SECRET` (see **Setup status** — not `npx auth secret`).
+      Done in setup.
+- [ ] `src/lib/env.ts` validates env; `src/db/drizzle.ts` reads `env.DATABASE_URL`.
+- [ ] `npm run db:generate && npm run db:migrate` with the starter schema.
+- [ ] `npm run dev` → the landing page renders; typecheck / lint / build pass.
+
+**Done when:** the app boots, builds, and has migrated a real database.
+
+**M0 notes:** _(record resolved versions and any deviations here)_
+
+---
+
+## M1 · Public shell, no data yet
+
+- [ ] Tailwind design tokens in `globals.css` (`@theme`: colors, radius, font);
+      a small set of UI primitives in `components/ui/` (Button variants, Input,
+      Textarea, Select, Label, Card, Badge, Container).
+- [ ] `(marketing)` layout: header (logo → `/`, "Browse roles" → `/roles`,
+      "Post a role" → `/dashboard/roles/new`, "Sign in") + footer.
+- [ ] Landing page `/`: hero, CTA to browse and to post. Fully static.
+- [ ] `/roles` with hardcoded Job cards; search/filter UI as a small client leaf
+      (`components/role-filters.tsx`) that writes to the URL (`q`, `type`,
+      `workMode`, `page`) via `useRouter`/`useSearchParams`.
+- [ ] Results list wrapped in `<Suspense>` with a skeleton fallback.
+- [ ] `app/not-found.tsx` and `app/error.tsx` (client) with on-brand UI.
+
+**Done when:** a fast, server-rendered public skin; build output shows `/` as
+static and `/roles` as a static shell with a dynamic hole.
+
+---
+
+## M2 · Real data: the read path
+
+- [ ] Schema: replace `jobs.remote` text with a `workMode` pgEnum
+      (`remote | hybrid | onsite`); add `accounts` exactly per the Auth.js
+      Drizzle adapter (see `docs/research/auth-drizzle-schema.md`); **no**
+      `sessions` / `verificationTokens` / `authenticators` tables.
+- [ ] `relations()` for users ↔ companies ↔ jobs ↔ applications (use the
+      relations API that matches the installed `drizzle-orm` version).
+- [ ] Indexes: `job(status, published_at)`, `job(company_id)`,
+      `application(candidate_id)`.
+- [ ] Generate + apply the migration.
+- [ ] Seed (`db:seed`, idempotent): 1 admin, 2 employers each with a company,
+      3 candidates (known dev password, bcrypt-hashed), ~15 Jobs across all
+      statuses/types/work modes, a few Applications.
+- [ ] `data/dto.ts`: `JobCardDTO`, `JobDetailDTO` (with
+      `isAcceptingApplications`, **no** `canEdit` — ADR-0003), `CompanyDTO`,
+      mappers `toJobCardDTO` / `toJobDetailDTO` / `toCompanyDTO`.
+- [ ] `data/jobs.ts`:
+  - `listPublishedJobs({ q, type, workMode, page })` — **Published** only,
+    `ILIKE` on title/company/location, page size 10, returns
+    `{ items, page, totalPages }`. **Uncached** (unbounded args — ADR-0003).
+  - `getPublicJobBySlug(slug)` — **Published or Closed** (ADR-0005), `'use cache'`
+    + `cacheTag(\`job-${slug}\`)` + `cacheLife`, returns DTO or `null`.
+  - `listPublicJobSlugs()` for `generateStaticParams`.
+- [ ] `data/companies.ts`: `getPublicCompanyBySlug(slug)` (cached, tag
+      `company-${slug}`) with its Published Jobs.
+- [ ] Wire `/roles` (default view cached one level up — ADR-0003; filtered view
+      dynamic), pagination controls, empty state.
+- [ ] `/roles/[slug]`: detail, `generateMetadata` (title, description, OG),
+      `generateStaticParams`, closed state banner, soft-404 UI (ADR-0004),
+      JSON-LD `JobPosting` (with `validThrough` for Closed).
+- [ ] `/companies/[slug]`: company profile + its open Jobs.
+
+**Done when:** the public board shows seeded Jobs from Postgres with working
+search/filter/pagination; detail and company pages are cached.
+
+---
+
+## M3 · Auth
+
+- [ ] `lib/validations/auth.ts`: `signupSchema` (name, email, password ≥ 8,
+      role ∈ candidate|employer — never admin), `loginSchema`.
+- [ ] `data/users.ts`: `getUserForCredentials(email)` (returns id, role,
+      passwordHash — used only by `auth.ts`), `createUser(input)`.
+- [ ] `auth.ts`: Credentials `authorize` (zod → DAL lookup → `bcrypt.compare`);
+      `jwt` + `session` callbacks carry `id` and `role`; `DrizzleAdapter` given
+      the custom `usersTable` / `accountsTable`; JWT strategy.
+- [ ] `src/types/next-auth.d.ts` module augmentation for `session.user.role`.
+- [ ] `data/dal.ts`: `verifySession()` (redirects to `/login`),
+      `getOptionalSession()` (no redirect, for header UI),
+      `requireRole(...roles)`.
+- [ ] `actions/auth.ts`: `signupAction` (duplicate email → field error),
+      `loginAction` (catch `AuthError` → friendly message, respect
+      `callbackUrl`), `logoutAction`.
+- [ ] Client forms `components/forms/{login,signup}-form.tsx` with
+      `useActionState`, field errors, pending state.
+- [ ] `proxy.ts`: redirect signed-out users from `/dashboard/**` and `/admin/**`
+      to `/login?callbackUrl=…`; redirect signed-in users away from
+      `/login`/`/signup`. Cookie-only, no DB.
+- [ ] Marketing header shows "Dashboard / Sign out" when signed in (dynamic
+      leaf behind `<Suspense>` so the rest of the shell stays static).
+- [ ] `(app)` layout: dashboard nav that adapts to role; still not a security
+      boundary — every page calls the DAL.
+
+**Done when:** you can sign up as candidate or employer, log in/out, and reach
+the role-aware `/dashboard`; `/admin` bounces non-admins.
+
+---
+
+## M4 · The write path: companies & Jobs
+
+- [ ] `/dashboard/company`: employer creates/edits their Company
+      (`upsertMyCompany`; slug from name, unique). Employers without a company
+      are routed here before posting.
+- [ ] `lib/validations/job.ts`: `jobSchema` (title, description, location,
+      type, workMode, salaryMin ≤ salaryMax refinement); empty strings → undefined.
+- [ ] `data/jobs.ts` owner functions (all open with `requireRole("employer")`
+      and scope by `company.ownerId = session.userId`):
+      `listMyJobs`, `getMyJobById`, `createJobForMyCompany`,
+      `updateMyJob`, `setMyJobStatus`, `deleteMyJob`.
+- [ ] `actions/jobs.ts`: `createJob`, `updateJob`, `publishJob`, `closeJob`,
+      `deleteJob` — verify → authorize → validate → write → `updateTag(\`job-${slug}\`)`
+      / `updateTag(\`company-${slug}\`)` + refresh the board.
+- [ ] `components/forms/job-form.tsx` shared by new/edit.
+- [ ] `/dashboard/roles` (my Jobs table with status badges + actions),
+      `/dashboard/roles/new`, `/dashboard/roles/[id]/edit` (owner-scoped;
+      `notFound()` if not theirs).
+- [ ] Owner-only "Edit this Job" affordance on `/roles/[slug]` as a separate
+      dynamic component behind `<Suspense>` (ADR-0003 — never in the cached DTO).
+- [ ] Slugs: `slugify(title)` + short random suffix; immutable after publish.
+
+**Done when:** an employer creates a company, posts a draft, publishes it, and
+sees it live on the board and detail page immediately (read-your-writes); closing
+it removes it from the board but keeps the detail page with the closed banner.
+
+---
+
+## M5 · Applications & admin
+
+- [ ] `lib/validations/application.ts` (coverLetter ≤ 5000; resumeUrl optional URL).
+- [ ] `data/applications.ts`: `applyToJob` (candidate only, Job must be
+      Published, unique per pair → friendly "already applied"),
+      `listMyApplications`, `listApplicationsForMyJobs`,
+      `setApplicationStatus` (employer owns the Job), `hasApplied(jobSlug)`.
+- [ ] `actions/applications.ts`: thin wrappers; candidateId from session.
+- [ ] Apply UI on `/roles/[slug]`: dynamic leaf behind `<Suspense>` — signed
+      out → "Sign in to apply"; candidate → form or "Applied ✓"; employer/admin
+      → hidden; Closed → disabled.
+- [ ] `/dashboard/applications`: candidate view (status per Job) / employer view
+      (grouped by Job, status select).
+- [ ] `/dashboard` home: role-aware stats (counts) and quick links.
+- [ ] `/dashboard/settings`: update name; change password (verify current).
+- [ ] `/admin` (`requireRole("admin")`): list all Jobs (close/delete any), list
+      users (change role). Each admin action re-checks the role.
+
+**Done when:** the full two-sided flow works with ownership enforced: candidate
+applies → employer sees it and changes status → candidate sees the new status.
+
+---
+
+## M6 · Polish, deploy, operate
+
+- [ ] Loading states (`loading.tsx` or Suspense fallbacks) on dashboard routes;
+      accessible forms (labels, `aria-invalid`, focus on first error).
+- [ ] `app/sitemap.ts` (Public Jobs + companies) and `app/robots.ts`.
+- [ ] `instrumentation.ts`: minimal `onRequestError` logging.
+- [ ] `next.config.ts` production notes stay commented (self-hosting only).
+- [ ] **Human step:** create the Vercel project, set env vars
+      (`DATABASE_URL`, `AUTH_SECRET`, `AUTH_TRUST_HOST` if needed), deploy;
+      run migrations against the prod DB.
+- [ ] Production smoke check of the M5 flow on the deployed URL.
+- [ ] `docs/06-production.md`: env, migrations, caching on Vercel, and where
+      `deploymentId` / `cacheHandler` / `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` go
+      if self-hosted.
+
+**Done when:** the app is deployed and the two-sided flow works in production.
+
+---
+
+## Stretch (optional — only after M6, only if the human asks)
+
+- Featured-role payment via Stripe Checkout + the `/api/webhooks/stripe` Route
+  Handler (verify signature on the raw body).
+- Resume upload (e.g. Vercel Blob) replacing `resumeUrl` text input.
+- Email the employer on a new Application via `after()`.
+- OAuth login (GitHub) — `accounts` table already exists.
+- Optimistic "Applied" state with `useOptimistic`.
