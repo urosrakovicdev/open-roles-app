@@ -1,15 +1,21 @@
 // Auth.js module augmentation — teaches the `next-auth` types about our Role.
-// The DAL reads `session.user.role`; without this, it doesn't typecheck.
-//
-// TODO (M3): the jwt/session callbacks in src/auth.ts must actually copy `id`
-// and `role` onto the token and session; also augment `JWT` (@auth/core/jwt)
-// once the callbacks exist.
+// The jwt/session callbacks (src/auth.config.ts) copy `id` + `role` from the
+// user onto the token, and from the token onto the session; the DAL reads
+// `session.user.role`.
 // Docs: https://authjs.dev/getting-started/typescript#module-augmentation
 
-import type { userRole } from "@/db/schema"
+import type { UserRole } from "@/data/dto"
 
 declare module "next-auth" {
   interface User {
-    role?: (typeof userRole.enumValues)[number]
+    role?: UserRole
+  }
+}
+
+// `next-auth/jwt` only re-exports `@auth/core/jwt`, so augment the source.
+declare module "@auth/core/jwt" {
+  interface JWT {
+    id?: string
+    role?: UserRole
   }
 }

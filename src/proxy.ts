@@ -1,18 +1,29 @@
 // proxy.ts — Next.js 16 middleware (was middleware.ts pre-16).
-// Runs on EVERY matched request, including prefetches.
+// Runs on every matched request, including prefetches.
 //
-// This is the OPTIMISTIC auth tier. It may only read
-// the session cookie for a fast redirect — it must NOT hit the database, and it
-// is NOT the security boundary. The real check is re-run in the DAL at every
-// data entry point. Re-exporting Auth.js's `auth` gives us that cookie-cheap
-// check for free.
+// This is the OPTIMISTIC auth tier. It only reads the signed session cookie
+// for a fast redirect — no database, and NOT the security boundary. The real
+// check is re-run in the DAL at every entry point. The rules live in the
+// `authorized` callback in src/auth.config.ts:
+//  - signed out on /dashboard/** or /admin/** → /login?callbackUrl=…
+//  - signed in on /login or /signup → /dashboard
 //
-// Docs: https://authjs.dev/getting-started/installation (Middleware/Proxy)
+// It builds its own NextAuth instance from the DB-free config, so nothing here
+// imports the adapter, `db` or bcrypt.
+//
+// Docs: https://authjs.dev/guides/edge-compatibility
 //       https://nextjs.org/docs/app/api-reference/file-conventions/proxy
 
-export { auth as proxy } from "@/auth"
+import NextAuth from "next-auth"
+import { authConfig } from "@/auth.config"
 
-// Limit where the proxy runs (skip static assets). Protect the (app) dashboard.
+const { auth } = NextAuth(authConfig)
+
+// An export specifier: Next statically checks for a `proxy` export, and
+// doesn't see one inside a destructuring declaration.
+export { auth as proxy }
+
+// Only the routes the rules above care about — public pages never pay for it.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/login", "/signup"],
 }

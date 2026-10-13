@@ -1,7 +1,10 @@
-// THE DATA ACCESS LAYER.
+// THE DATA ACCESS LAYER — session + Role checks.
 // server-only: importing this from a Client Component is a build error.
-// This is the security boundary — the ONE place auth is verified. Every read in
-// data/* and every mutation in actions/* calls a function here first.
+// This is the security boundary — the ONE place auth is verified. Every private
+// read in data/* and every mutation in actions/* calls a function here first.
+//
+// The session is a JWT carrying only id + role. A Role change takes effect on
+// the user's next sign-in (docs/03-architecture.md §5).
 //
 // Docs: https://nextjs.org/docs/app/guides/data-security
 //       https://nextjs.org/docs/app/guides/authentication
@@ -12,26 +15,42 @@ import { cache } from "react"
 import { redirect } from "next/navigation"
 import { connection } from "next/server"
 import { auth } from "@/auth"
+import type { UserRole } from "./dto"
 
-// verifySession() — the project's single auth function.
-// Wrapped in React cache() so it runs once per request no matter how many
-// callers (Server Components, Actions, Route Handlers) invoke it.
-export const verifySession = cache(async () => {
+export type Session = { userId: string; role: UserRole }
+
+// Reads and checks the Auth.js session; null when signed out. Wrapped in React
+// cache() so it runs once per request however many callers ask.
+const readSession = cache(async (): Promise<Session | null> => {
   // Mark this as request-time work before Auth.js runs: auth() uses
   // crypto.getRandomValues() before it reads cookies, which cacheComponents
   // rejects during prerendering. https://nextjs.org/docs/messages/blocking-prerender-crypto
   await connection()
-  const session = await auth() // Auth.js
-  if (!session?.user?.id) redirect("/login") // authentication
-  return { userId: session.user.id, role: session.user.role }
+  const session = await auth()
+  const user = session?.user
+  if (!user?.id || !user.role) return null
+  return { userId: user.id, role: user.role }
 })
 
-// requireRole() — authorization. Call at the top of role-gated reads/actions.
-export const requireRole = cache(async (role: "employer" | "admin") => {
-  const session = await verifySession()
-  if (session.role !== role && session.role !== "admin") redirect("/dashboard")
+// verifySession() — authentication. Signed out → /login. Call at the top of
+// every private page, private read and Server Action.
+export async function verifySession(): Promise<Session> {
+  const session = await readSession()
+  if (!session) redirect("/login")
   return session
-})
+}
 
-// TODO (M3): once the session callback carries `role`, type
-// session.user.role properly (module augmentation in a next-auth.d.ts).
+// getOptionalSession() — for UI that differs when signed in (the public
+// header). Never redirects, and is NOT an authorization check: anything it
+// shows must be safe for a signed-out visitor to reach.
+export async function getOptionalSession(): Promise<Session | null> {
+  return readSession()
+}
+
+// requireRole() — authorization. Only the listed Roles pass (an Admin is not
+// implicitly an Employer); anyone else is sent to their /dashboard.
+export async function requireRole(...roles: UserRole[]): Promise<Session> {
+  const session = await verifySession()
+  if (!roles.includes(session.role)) redirect("/dashboard")
+  return session
+}
