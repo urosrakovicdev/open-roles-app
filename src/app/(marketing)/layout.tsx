@@ -1,8 +1,8 @@
 // Layout for the PUBLIC marketing section. The route group `(marketing)` does
 // NOT appear in the URL — it's purely for organising routes and giving the
 // public pages a shared header/footer distinct from the dashboard.
-// Fully static: no session reads here (M3 adds the signed-in header bits as a
-// dynamic leaf behind <Suspense>, not in this layout).
+// No session reads here: the signed-in header bits are a dynamic leaf behind
+// <Suspense> inside SiteHeader, so everything else stays in the static shell.
 // Docs: https://nextjs.org/docs/app/api-reference/file-conventions/route-groups
 
 import { SiteFooter } from "./_components/site-footer"

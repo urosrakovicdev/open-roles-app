@@ -9,10 +9,15 @@
 //
 // Docs: https://nextjs.org/docs/app/guides/data-security (Controlling return values)
 
-import type { companies, jobs } from "@/db/schema"
+import type { companies, jobs, users } from "@/db/schema"
 
 type JobRow = typeof jobs.$inferSelect
 type CompanyRow = typeof companies.$inferSelect
+
+// ── User ───────────────────────────────────────────────────────────────────
+
+// A user's permission level (CONTEXT.md: a Role is never a Job).
+export type UserRole = (typeof users.$inferSelect)["role"]
 
 // ── Company ────────────────────────────────────────────────────────────────
 

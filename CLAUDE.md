@@ -256,7 +256,7 @@ src/actions/    'use server' mutations (thin; delegate to data/)
 src/db/         Drizzle connection + schema + seed
 src/lib/        validations (zod), env, utils
 src/components/ ui primitives + forms (client leaves)
-src/auth.ts     Auth.js config      src/proxy.ts   optimistic auth redirect
+src/auth.ts     Auth.js config (+ DB-free auth.config.ts)   src/proxy.ts   optimistic auth redirect
 docs/           brief · data model · architecture · roadmap · conventions · ADRs
 ```
 

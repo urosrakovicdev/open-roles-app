@@ -303,35 +303,88 @@ search/filter/pagination; detail and company pages are cached.
 
 ## M3 · Auth
 
-- [ ] `lib/validations/auth.ts`: `signupSchema` (name, email, password ≥ 8,
+- [x] `lib/validations/auth.ts`: `signupSchema` (name, email, password ≥ 8,
       role ∈ candidate|employer — never admin), `loginSchema`.
-- [ ] `data/users.ts`: `getUserForCredentials(email)` (returns id, role,
+- [x] `data/users.ts`: `getUserForCredentials(email)` (returns id, role,
       passwordHash — used only by `auth.ts`), `createUser(input)`.
-- [ ] `auth.ts`: Credentials `authorize` (zod → DAL lookup → `bcrypt.compare`);
+- [x] `auth.ts`: Credentials `authorize` (zod → DAL lookup → `bcrypt.compare`);
       `jwt` + `session` callbacks carry `id` and `role`; `DrizzleAdapter` given
       the custom `usersTable` / `accountsTable`; JWT strategy.
-- [ ] `src/types/next-auth.d.ts` module augmentation for `session.user.role`.
-- [ ] `data/dal.ts`: `verifySession()` (redirects to `/login`),
+- [x] `src/types/next-auth.d.ts` module augmentation for `session.user.role`.
+- [x] `data/dal.ts`: `verifySession()` (redirects to `/login`),
       `getOptionalSession()` (no redirect, for header UI),
       `requireRole(...roles)`.
-- [ ] `actions/auth.ts`: `signupAction` (duplicate email → field error),
+- [x] `actions/auth.ts`: `signupAction` (duplicate email → field error),
       `loginAction` (catch `AuthError` → friendly message, respect
       `callbackUrl`), `logoutAction`.
-- [ ] Client forms `components/forms/{login,signup}-form.tsx` with
+- [x] Client forms `components/forms/{login,signup}-form.tsx` with
       `useActionState`, field errors, pending state.
-- [ ] `proxy.ts`: redirect signed-out users from `/dashboard/**` and `/admin/**`
+- [x] `proxy.ts`: redirect signed-out users from `/dashboard/**` and `/admin/**`
       to `/login?callbackUrl=…`; redirect signed-in users away from
       `/login`/`/signup`. Cookie-only, no DB.
-- [ ] Marketing header shows "Dashboard / Sign out" when signed in (dynamic
+- [x] Marketing header shows "Dashboard / Sign out" when signed in (dynamic
       leaf behind `<Suspense>` so the rest of the shell stays static).
-- [ ] `(app)` layout: dashboard nav that adapts to role; still not a security
+- [x] `(app)` layout: dashboard nav that adapts to role; still not a security
       boundary — every page calls the DAL.
 
 **Done when:** you can sign up as candidate or employer, log in/out, and reach
 the role-aware `/dashboard`; `/admin` bounces non-admins.
 
 
-**M3 notes:** _(decisions, deviations, out-of-scope findings)_
+**M3 notes:**
+
+- **Chunks:** `m3-1-auth-core` → `m3-2-auth-forms` → `m3-3-session-ui`.
+- **Split Auth.js config:** `src/auth.config.ts` holds the DB-free part (JWT
+  strategy, `jwt` / `session` callbacks, the proxy's `authorized` rules);
+  `src/auth.ts` spreads it and adds the adapter + Credentials. `proxy.ts`
+  builds its own `NextAuth(authConfig)`, so it never imports `db` or bcrypt —
+  the "cookie-only" rule is structural, not a convention. Next's build
+  statically looks for a `proxy` export and doesn't see one in
+  `export const { auth: proxy } = …`; an export specifier
+  (`export { auth as proxy }`) works.
+- **Proxy matcher** narrowed to `/dashboard/:path*`, `/admin/:path*`,
+  `/login`, `/signup` (was every route) — public pages never run it.
+  `callbackUrl` is the relative path + query string.
+- **`requireRole(...roles)`:** only the listed Roles pass; an Admin is **not**
+  implicitly an Employer (the M0 stub let admins through everything). Failing
+  it redirects to `/dashboard`.
+- **`UserRole`** type lives in `data/dto.ts` (derived from the schema); the
+  Auth.js augmentation imports it. The JWT augmentation targets
+  `@auth/core/jwt` — `next-auth/jwt` only re-exports it.
+- **Emails** are trimmed + lowercased by the zod schemas (seed emails are
+  lowercase). Passwords: 8–72 chars (bcrypt ignores bytes past 72).
+- **`createUser`** hashes in the DAL (bcrypt cost 10, same as the seed) and
+  uses `ON CONFLICT (email) DO NOTHING` → `email_taken`, so a signup race
+  can't surface as a 500.
+- **Auth actions:** state shape `{ message?, errors?, fields? }` — `fields`
+  echoes name / email / role (never the password) so a failed submit keeps
+  the form filled. Login shows one "Invalid email or password." for unknown
+  email and wrong password alike. `callbackUrl` is honoured only for same-site
+  relative paths (`/x` yes; `//x`, `/\x`, absolute URLs → `/dashboard`).
+  Signup starts the session and lands on `/dashboard` (no callbackUrl).
+- **Auth pages:** new `(auth)/layout.tsx` (wordmark + centred card, no site
+  nav). `/signup` is fully static; `/login` is a static shell with the form
+  behind `<Suspense>` because it reads `?callbackUrl` — streamed as server
+  HTML, so both forms submit without JS. Both are `noindex`. Shared
+  `components/forms/field-error.tsx` links messages via `aria-describedby`.
+- **Header:** `HeaderAccount` (`getOptionalSession()`) behind `<Suspense>`
+  with a neutral placeholder — no "Sign in" flash for signed-in visitors.
+  Sign-out is a `<form action={logoutAction}>` (POST, works without JS).
+  Consequence: every marketing page is now ◐ instead of ○ — the content is
+  still in the prerendered HTML (checked for `/` and a prebuilt Job page);
+  only the account corner streams.
+- **Dashboard chrome:** `(app)` layout = top bar (wordmark + Sign out) and a
+  Role-aware `DashboardNav` behind `<Suspense>` (no top-level session read in
+  the layout). Nav lists only routes that exist today — Candidate: Overview,
+  My applications, Settings; Employer: + Post a role, Applications; Admin:
+  Overview, Admin console, Settings. **M4:** add "My roles"
+  (`/dashboard/roles`) and "Company" to the Employer nav. Active link via a
+  small client `NavLink` (`aria-current`).
+- **`/dashboard`:** Role-aware quick-link cards (M5 adds the stats).
+  **`/admin`:** heading + back link; non-admins are redirected to
+  `/dashboard` by `requireRole("admin")` (streamed redirect — the status is
+  200 because `loading.tsx` has already started the response).
+- Shared `lib/role-labels.ts` for Role display names.
 
 ---
 

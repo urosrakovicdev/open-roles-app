@@ -1,12 +1,14 @@
-// Public site header: logo → /, "Browse roles", "Post a role", "Sign in".
-// Static Server Component. TODO (M3): swap "Sign in" for "Dashboard / Sign out"
-// when signed in — as a small dynamic leaf behind <Suspense>, so the rest of
-// the header stays in the static shell.
+// Public site header: logo → /, "Browse roles", "Post a role", and the
+// account corner ("Sign in", or "Dashboard / Sign out" when signed in).
+// Static Server Component; only HeaderAccount reads the session, behind
+// <Suspense>, so the rest of the header stays in the static shell.
 
 import Link from "next/link"
+import { Suspense } from "react"
 import { Logo } from "@/components/logo"
 import { buttonClasses } from "@/components/ui/button"
 import { Container } from "@/components/ui/container"
+import { HeaderAccount, HeaderAccountFallback } from "./header-account"
 
 export function SiteHeader() {
   return (
@@ -31,12 +33,9 @@ export function SiteHeader() {
           >
             Post a role
           </Link>
-          <Link
-            href="/login"
-            className={buttonClasses({ variant: "secondary", size: "sm" })}
-          >
-            Sign in
-          </Link>
+          <Suspense fallback={<HeaderAccountFallback />}>
+            <HeaderAccount />
+          </Suspense>
         </nav>
       </Container>
     </header>
