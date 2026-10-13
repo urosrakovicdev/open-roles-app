@@ -30,13 +30,19 @@
       "Bash(git rev-parse *)",
       "Bash(git ls-files*)",
       "Bash(git check-ignore *)",
-      "Bash(git remote -v)"
+      "Bash(git remote -v)",
+      "WebFetch(domain:nextjs.org)",
+      "WebFetch(domain:authjs.dev)",
+      "WebFetch(domain:orm.drizzle.team)",
+      "WebFetch(domain:tailwindcss.com)"
     ],
     "deny": [
       "Bash(git push*)",
       "Bash(git commit*)",
       "Bash(gh pr *)",
       "Bash(npx auth *)",
+      "Bash(neon *)",
+      "Bash(npx neon*)",
       "Read(./.env.local)",
       "Read(./.env)"
     ]

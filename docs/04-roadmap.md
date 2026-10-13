@@ -5,7 +5,10 @@ items off (`- [x]`) as you go. After each milestone: run the checks in
 [`CLAUDE.md`](../CLAUDE.md#checks--run-after-every-milestone-and-before-saying-done),
 self-review against the checklist in [`03-architecture.md`](03-architecture.md#review-checklist),
 then stage and **ask the human to commit** (they commit by hand — see
-[`CLAUDE.md` › Git](../CLAUDE.md#git)).
+[`CLAUDE.md` › Git](../CLAUDE.md#git)). One milestone per session, each on its
+own branch (`m0-boot`, `m1-public-shell`, …) ending with the
+[end-of-milestone report](../CLAUDE.md#end-of-milestone-report). Record
+decisions and deviations in the milestone's **Notes** line.
 
 Vocabulary follows [`CONTEXT.md`](../CONTEXT.md): **Job** = a posting (URL says
 `/roles`), **Role** = a user permission.
@@ -32,8 +35,12 @@ No secret values here. Everything below was verified in the setup session.
 - **GitHub:** private repo `urosrakovicdev/open-roles-app` added as `origin`.
   Nothing pushed — the human pushes by hand.
 - **Claude Code permissions:** `.claude/settings.json` allows npm scripts and
-  install, named `npx` tools, `node`, local `curl`, and non-destructive git.
-  Denies `git commit`, `git push`, `gh pr`, `npx auth`, and reading `.env.local`.
+  install, named `npx` tools, `node`, local `curl`, non-destructive git, and
+  fetching the Next.js / Auth.js / Drizzle / Tailwind docs.
+  Denies `git commit`, `git push`, `gh pr`, `npx auth`, the Neon CLI, and reading
+  `.env.local`.
+- **Neon agent skills** (`neon`, `neon-postgres`) installed in `.claude/skills/`
+  as reference only — see `CLAUDE.md` › Environment & safety.
 - **Skipped / deferred to M6:** Vercel project; set Vercel's function region to
   **`fra1`** (Frankfurt) to match Neon; production `DATABASE_URL` (pooled
   `production` branch) and a **new** production `AUTH_SECRET`, both set in Vercel.
@@ -78,6 +85,9 @@ No secret values here. Everything below was verified in the setup session.
 **Done when:** a fast, server-rendered public skin; build output shows `/` as
 static and `/roles` as a static shell with a dynamic hole.
 
+
+**M1 notes:** _(decisions, deviations, out-of-scope findings)_
+
 ---
 
 ## M2 · Real data: the read path
@@ -87,7 +97,8 @@ static and `/roles` as a static shell with a dynamic hole.
       Drizzle adapter (see `docs/research/auth-drizzle-schema.md`); **no**
       `sessions` / `verificationTokens` / `authenticators` tables.
 - [ ] `relations()` for users ↔ companies ↔ jobs ↔ applications (use the
-      relations API that matches the installed `drizzle-orm` version).
+      relations API that matches the installed `drizzle-orm` version — the
+      research note was written against 0.38; M0 recorded what is installed).
 - [ ] Indexes: `job(status, published_at)`, `job(company_id)`,
       `application(candidate_id)`.
 - [ ] Generate + apply the migration.
@@ -115,6 +126,9 @@ static and `/roles` as a static shell with a dynamic hole.
 
 **Done when:** the public board shows seeded Jobs from Postgres with working
 search/filter/pagination; detail and company pages are cached.
+
+
+**M2 notes:** _(decisions, deviations, out-of-scope findings)_
 
 ---
 
@@ -147,6 +161,9 @@ search/filter/pagination; detail and company pages are cached.
 **Done when:** you can sign up as candidate or employer, log in/out, and reach
 the role-aware `/dashboard`; `/admin` bounces non-admins.
 
+
+**M3 notes:** _(decisions, deviations, out-of-scope findings)_
+
 ---
 
 ## M4 · The write path: companies & Jobs
@@ -175,6 +192,9 @@ the role-aware `/dashboard`; `/admin` bounces non-admins.
 sees it live on the board and detail page immediately (read-your-writes); closing
 it removes it from the board but keeps the detail page with the closed banner.
 
+
+**M4 notes:** _(decisions, deviations, out-of-scope findings)_
+
 ---
 
 ## M5 · Applications & admin
@@ -198,6 +218,9 @@ it removes it from the board but keeps the detail page with the closed banner.
 **Done when:** the full two-sided flow works with ownership enforced: candidate
 applies → employer sees it and changes status → candidate sees the new status.
 
+
+**M5 notes:** _(decisions, deviations, out-of-scope findings)_
+
 ---
 
 ## M6 · Polish, deploy, operate
@@ -216,6 +239,9 @@ applies → employer sees it and changes status → candidate sees the new statu
       if self-hosted.
 
 **Done when:** the app is deployed and the two-sided flow works in production.
+
+
+**M6 notes:** _(decisions, deviations, out-of-scope findings)_
 
 ---
 

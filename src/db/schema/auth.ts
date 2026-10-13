@@ -1,5 +1,6 @@
-// Auth.js required tables (users, accounts, sessions, verificationTokens) plus
-// our app-specific columns on `users` (role). The Drizzle adapter reads/writes
+// Auth.js tables we need (users, accounts — see the note below for why not
+// sessions / verificationTokens / authenticators) plus our app-specific columns
+// on `users` (role). The Drizzle adapter reads/writes
 // these. Copy the canonical definitions from the Auth.js Drizzle adapter docs.
 //
 // Docs: https://authjs.dev/getting-started/adapters/drizzle  ← copy schema from here

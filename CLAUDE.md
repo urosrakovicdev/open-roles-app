@@ -20,10 +20,21 @@ reviews and steers.
 
 - Work **one milestone at a time**, in order (M0 → M6). Don't start a milestone
   until the previous one meets its "Done when" criteria **and the human has
-  committed it** (see [Git](#git)).
+  committed and merged it** (see [Git](#git)).
+- **One milestone per session.** When a milestone is committed, stop; the human
+  starts a fresh session for the next one.
 - At the start of a session, find the first unchecked item in
   [`docs/04-roadmap.md`](docs/04-roadmap.md) and continue from there. Tell the
-  human in one line where you're resuming.
+  human in one line where you're resuming. If you're mid-milestone, make sure
+  you're on that milestone's branch.
+- **Stay inside the milestone.** Don't implement a later milestone's
+  `TODO (M<n>)` early, don't refactor code the milestone doesn't touch, and don't
+  add features outside [`01-product-brief.md`](docs/01-product-brief.md). If you
+  spot a problem outside scope, note it in the milestone's **Notes** instead.
+- **Small ambiguities: decide, don't ask.** When the docs don't cover a detail
+  (copy, spacing, a helper's name, an error message), pick what fits the docs
+  best and record it in the milestone's **Notes**. Ask the human only when the
+  choice changes product behaviour, data shape, or an ADR.
 - Check items off (`- [x]`) in the roadmap as you complete them. The roadmap is
   the **only** worklist; there is no issue tracker.
 - **No tests.** This project deliberately has no unit or e2e test suite. Do not
@@ -35,6 +46,29 @@ reviews and steers.
   do and what value you need back.
 - Never read or print `.env.local`. To check env, test that values exist and
   have the right shape (e.g. `DATABASE_URL` parses as a URL), never their content.
+
+## Environment & safety
+
+- **Shell:** this is Windows. Run commands with the **Bash** tool (Git Bash), not
+  PowerShell — the pre-approved commands in `.claude/settings.json` are Bash rules.
+- **Database:** `.env.local` points at the Neon **`dev`** branch (Frankfurt,
+  pooled). Migrations, `db:seed` (which clears tables) and experiments only ever
+  run there. Never point a command at the `production` branch — that happens
+  once, by the human, in M6.
+- **Dev server:** start `npm run dev` in the background, and stop it when you're
+  done verifying, so it doesn't hold port 3000 into the next session. If 3000 is
+  taken, find and stop the stale server rather than using another port.
+- One-off scripts (e.g. a DB check) go in the scratchpad or are deleted right
+  after; never leave them in the repo.
+- **Neon skills** (`.claude/skills/neon*`, pinned in `skills-lock.json`) are
+  reference material for Postgres on Neon: pooled vs direct, migrations,
+  branching, scale-to-zero. This repo's docs and ADRs win over them:
+  - Auth is **Auth.js** ([ADR-0001](docs/adr/0001-stack-choice.md)) — never
+    Neon Auth / Managed Better Auth, even in M3 before Auth.js is wired.
+  - No Neon CLI provisioning: don't run `neon init` / `link` / `checkout` /
+    `deploy` / `env pull` / `mcp`, and don't add `neon.ts`, Neon Functions,
+    Object Storage, Data API or AI Gateway. They rewrite `.env.local` or add
+    infrastructure the docs don't have. The Neon CLI is denied in settings.
 
 ## Read before building
 
@@ -105,25 +139,58 @@ npm run lint        # eslint
 npm run build       # next build — must pass with cacheComponents on
 ```
 
-Then run `npm run dev` and walk the milestone's "Done when" flow yourself (curl,
-or a browser tool if available). Report honestly: if a check fails or a step
-couldn't be verified (e.g. no DB yet), say so.
+Then self-review the diff against the
+[review checklist](docs/03-architecture.md#review-checklist), run `npm run dev`
+and walk the milestone's "Done when" flow:
+
+- **You verify** what you can: curl the routes (status codes, rendered text),
+  query the `dev` DB with a throwaway script, read the `next build` route table
+  (static / partial / dynamic), or drive a browser tool if one is available.
+- **The human verifies** what needs a real browser (forms, sign-in, cookies —
+  mostly M3+). Give them a numbered **click-through script**: URL, what to
+  click/type (seed accounts and passwords included), and what they should see.
+
+Report honestly: if a check fails or a step couldn't be verified, say so — never
+claim a milestone is done with a failing check.
+
+### End-of-milestone report
+
+Finish every milestone with this, in this order, then stop:
+
+1. **Built** — 3–8 bullets of what now works.
+2. **Checks** — typecheck / lint / build result (pass/fail, with the error if
+   any) and the build route table for the milestone's routes.
+3. **Verified by me** — what you exercised and the evidence.
+4. **Please verify** — the click-through script (or "nothing needed").
+5. **Decisions & deviations** — anything recorded in the milestone's **Notes**,
+   new ADRs, doc fixes.
+6. **Not done / not verified** — honestly, or "none".
+7. **Commit** — staged files summary and the commands from [Git](#git).
 
 ## Git
 
-- Work on a branch per milestone (`m1-public-shell`, `m2-read-path`, …). You may
-  create and switch branches.
+- One branch per milestone, always created from an up-to-date `main`:
+  `m0-boot`, `m1-public-shell`, `m2-read-path`, `m3-auth`, `m4-write-path`,
+  `m5-applications-admin`, `m6-polish-deploy`. You may create and switch
+  branches; you never merge.
 - **The human makes every commit, by hand.** Never run `git commit`, `git push`,
   or open PRs (they're denied in `.claude/settings.json`), and never add Claude
   attribution (`Co-Authored-By` etc.) anywhere.
 - **At the end of each milestone, stop and ask for the commit** before starting
   the next one:
-  1. Run the checks below and walk the "Done when" flow.
+  1. Run the [checks](#checks--run-after-every-milestone-and-before-saying-done) and walk the "Done when" flow.
   2. Stage the milestone's changes with `git add` and show `git status --short`.
      Confirm `.env.local` is not staged.
-  3. Give the human a ready-to-run conventional commit command
-     (`git commit -m "feat(m2): …"`), no attribution trailer.
-  4. Wait until they say it's committed (verify with `git log -1`), then continue.
+  3. Give the human the ready-to-run commands — a conventional commit (no
+     attribution trailer), then the merge into `main`:
+     ```bash
+     git commit -m "feat(m2): public board reads seeded Jobs from Postgres"
+     git switch main
+     git merge --ff-only m2-read-path
+     ```
+     (Pushing is up to them: `git push -u origin main`.)
+  4. Wait until they say it's done, verify with `git log -1 main`, and end the
+     session — the next milestone starts in a fresh one.
 - `migrations/` must be included in the commit. `.env.local` never is.
 
 ## Commands
