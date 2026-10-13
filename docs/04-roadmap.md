@@ -185,17 +185,17 @@ static and `/roles` as a static shell with a dynamic hole.
 - [x] Seed (`db:seed`, idempotent): 1 admin, 2 employers each with a company,
       3 candidates (known dev password, bcrypt-hashed), ~15 Jobs across all
       statuses/types/work modes, a few Applications.
-- [ ] `data/dto.ts`: `JobCardDTO`, `JobDetailDTO` (with
+- [x] `data/dto.ts`: `JobCardDTO`, `JobDetailDTO` (with
       `isAcceptingApplications`, **no** `canEdit` — ADR-0003), `CompanyDTO`,
       mappers `toJobCardDTO` / `toJobDetailDTO` / `toCompanyDTO`.
-- [ ] `data/jobs.ts`:
+- [x] `data/jobs.ts`:
   - `listPublishedJobs({ q, type, workMode, page })` — **Published** only,
     `ILIKE` on title/company/location, page size 10, returns
     `{ items, page, totalPages }`. **Uncached** (unbounded args — ADR-0003).
   - `getPublicJobBySlug(slug)` — **Published or Closed** (ADR-0005), `'use cache'`
     + `cacheTag(\`job-${slug}\`)` + `cacheLife`, returns DTO or `null`.
   - `listPublicJobSlugs()` for `generateStaticParams`.
-- [ ] `data/companies.ts`: `getPublicCompanyBySlug(slug)` (cached, tag
+- [x] `data/companies.ts`: `getPublicCompanyBySlug(slug)` (cached, tag
       `company-${slug}`) with its Published Jobs.
 - [ ] Wire `/roles` (default view cached one level up — ADR-0003; filtered view
       dynamic), pagination controls, empty state.
@@ -236,6 +236,29 @@ search/filter/pagination; detail and company pages are cached.
   Closed Job). Dev password for every account: `openroles-dev` (bcrypt, cost
   10); the seed prints the accounts. Descriptions are plain text with
   paragraphs and `•` bullets — render with `whitespace-pre-line`.
+- **DTOs:** `JobCardDTO.workMode` is now non-null (matches the schema).
+  `JobDetailDTO` adds `description`, `status` (`published | closed` only),
+  `isAcceptingApplications`, `closedAt`, `updatedAt` and the full
+  `CompanyDTO`; still **no `canEdit`**. `CompanyDTO` has no `ownerId`.
+  `closedAt` is derived from `updated_at` for Closed Jobs (no `closed_at`
+  column; closing is the Job's last write) — feeds JSON-LD `validThrough`.
+  `toJobDetailDTO` throws on a Draft rather than render it.
+- **`listPublishedJobs`:** Drizzle join on company; `ILIKE` on title, company
+  name and location with LIKE wildcards escaped and `q` capped at 100 chars;
+  count + page in one `db.batch()` round-trip; page past the end → last page.
+  Also returns `total`. Uncached (ADR-0003).
+- **Cached reads:** `getPublicJobBySlug` (`cacheLife("hours")`, tags
+  `job-${slug}` **and** `company-${companySlug}` — the page shows company
+  details) and `getPublicCompanyBySlug` (tag `company-${slug}`, Published Jobs
+  newest first). `listPublicJobSlugs` / `listPublicCompanySlugs` for
+  `generateStaticParams` (uncached, build-time).
+- **Caching caveat (ADR-0003):** real slugs are a bounded key space, but junk
+  slugs from bots still mint (null) cache entries. Bounded in practice by the
+  in-memory LRU; chunk 5 rejects malformed slugs before the cached read.
+- **For M6:** under `cacheComponents`, `generateStaticParams` must return at
+  least one param — an empty production DB would fail the first build. Chunk 5
+  adds a placeholder fallback.
+- `data/sample-jobs.ts` (M1) deleted.
 
 ---
 
