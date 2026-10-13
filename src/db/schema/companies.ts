@@ -22,4 +22,4 @@ export const companies = pgTable("company", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 
-// TODO: add a `companiesRelations` with relations(companies, ...) → owner, jobs.
+// Relations (owner, jobs) live in ./relations.ts.

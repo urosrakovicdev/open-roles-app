@@ -3,7 +3,14 @@
 // only see THEIR applications; an employer only those to THEIR jobs.
 // Docs: https://orm.drizzle.team/docs/sql-schema-declaration
 
-import { pgTable, text, timestamp, pgEnum, unique } from "drizzle-orm/pg-core"
+import {
+  index,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+} from "drizzle-orm/pg-core"
 import { users } from "./auth"
 import { jobs } from "./jobs"
 
@@ -31,6 +38,11 @@ export const applications = pgTable(
     status: applicationStatus("status").notNull().default("submitted"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  // A candidate can apply to a given job only once.
-  (t) => [unique().on(t.jobId, t.candidateId)],
+  (t) => [
+    // A candidate can apply to a given job only once. This unique index also
+    // serves lookups by job_id (its leading column).
+    unique().on(t.jobId, t.candidateId),
+    // "My applications" — every candidate query filters by candidate_id.
+    index("application_candidate_id_idx").on(t.candidateId),
+  ],
 )

@@ -21,3 +21,9 @@ export function formatSalary(min?: number | null, max?: number | null): string {
   if (min && max) return `$${min.toLocaleString()}–$${max.toLocaleString()}`
   return `From $${(min ?? max)!.toLocaleString()}`
 }
+
+// Cheap shape check for a public slug (what slugify() + a suffix produces).
+// Pages run it BEFORE a cached read, so junk URLs don't mint cache entries.
+export function isPlausibleSlug(slug: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && slug.length <= 120
+}

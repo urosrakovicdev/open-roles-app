@@ -172,43 +172,132 @@ static and `/roles` as a static shell with a dynamic hole.
 
 ## M2 · Real data: the read path
 
-- [ ] Schema: replace `jobs.remote` text with a `workMode` pgEnum
+- [x] Schema: replace `jobs.remote` text with a `workMode` pgEnum
       (`remote | hybrid | onsite`); add `accounts` exactly per the Auth.js
       Drizzle adapter (see `docs/research/auth-drizzle-schema.md`); **no**
       `sessions` / `verificationTokens` / `authenticators` tables.
-- [ ] `relations()` for users ↔ companies ↔ jobs ↔ applications (use the
+- [x] `relations()` for users ↔ companies ↔ jobs ↔ applications (use the
       relations API that matches the installed `drizzle-orm` version — the
       research note was written against 0.38; M0 recorded what is installed).
-- [ ] Indexes: `job(status, published_at)`, `job(company_id)`,
+- [x] Indexes: `job(status, published_at)`, `job(company_id)`,
       `application(candidate_id)`.
-- [ ] Generate + apply the migration.
-- [ ] Seed (`db:seed`, idempotent): 1 admin, 2 employers each with a company,
+- [x] Generate + apply the migration.
+- [x] Seed (`db:seed`, idempotent): 1 admin, 2 employers each with a company,
       3 candidates (known dev password, bcrypt-hashed), ~15 Jobs across all
       statuses/types/work modes, a few Applications.
-- [ ] `data/dto.ts`: `JobCardDTO`, `JobDetailDTO` (with
+- [x] `data/dto.ts`: `JobCardDTO`, `JobDetailDTO` (with
       `isAcceptingApplications`, **no** `canEdit` — ADR-0003), `CompanyDTO`,
       mappers `toJobCardDTO` / `toJobDetailDTO` / `toCompanyDTO`.
-- [ ] `data/jobs.ts`:
+- [x] `data/jobs.ts`:
   - `listPublishedJobs({ q, type, workMode, page })` — **Published** only,
     `ILIKE` on title/company/location, page size 10, returns
     `{ items, page, totalPages }`. **Uncached** (unbounded args — ADR-0003).
   - `getPublicJobBySlug(slug)` — **Published or Closed** (ADR-0005), `'use cache'`
     + `cacheTag(\`job-${slug}\`)` + `cacheLife`, returns DTO or `null`.
   - `listPublicJobSlugs()` for `generateStaticParams`.
-- [ ] `data/companies.ts`: `getPublicCompanyBySlug(slug)` (cached, tag
+- [x] `data/companies.ts`: `getPublicCompanyBySlug(slug)` (cached, tag
       `company-${slug}`) with its Published Jobs.
-- [ ] Wire `/roles` (default view cached one level up — ADR-0003; filtered view
+- [x] Wire `/roles` (default view cached one level up — ADR-0003; filtered view
       dynamic), pagination controls, empty state.
-- [ ] `/roles/[slug]`: detail, `generateMetadata` (title, description, OG),
+- [x] `/roles/[slug]`: detail, `generateMetadata` (title, description, OG),
       `generateStaticParams`, closed state banner, soft-404 UI (ADR-0004),
       JSON-LD `JobPosting` (with `validThrough` for Closed).
-- [ ] `/companies/[slug]`: company profile + its open Jobs.
+- [x] `/companies/[slug]`: company profile + its open Jobs.
 
 **Done when:** the public board shows seeded Jobs from Postgres with working
 search/filter/pagination; detail and company pages are cached.
 
 
-**M2 notes:** _(decisions, deviations, out-of-scope findings)_
+**M2 notes:**
+
+- **Chunks:** `m2-1-schema` → `m2-2-seed` → `m2-3-dal` → `m2-4-board` →
+  `m2-5-detail-pages`.
+- **Schema:** `job.work_mode` is a `work_mode` enum, **NOT NULL default
+  `onsite`** (every Job has one; the M1 DTO allowed null). Added
+  `job.updated_at` (`$onUpdate`), which the data model listed but the starter
+  schema lacked. `account` copies the adapter's property names, types, FK and
+  composite PK; SQL column names are snake_case like the rest of the schema —
+  the adapter maps by property name. `AdapterAccountType` is imported from
+  `next-auth/adapters` (re-exports `@auth/core/adapters`; `@auth/core` is only
+  a transitive dependency).
+- **Relations** (v1 API) live in `schema/relations.ts` — jobs ↔ applications
+  would otherwise import each other.
+- **Migrations 0001 + 0002:** generated in two steps (add `work_mode`, then
+  drop `remote`) because one step makes `drizzle-kit generate` ask
+  interactively whether it's a rename. Applied to Neon `dev`. No separate
+  index on `application(job_id)`: the unique `(job_id, candidate_id)` index
+  already covers it.
+- **Seed:** one atomic `db.batch()` (neon-http has no interactive
+  transactions; a batch is one transaction) clears all tables in FK order and
+  re-inserts, so a failed run keeps the old data. Fixed ids and slugs → stable
+  URLs across re-seeds. 6 users (1 admin, 2 employers, 3 candidates), 2
+  companies, 17 Jobs — 12 Published (so the Board has a page 2), 2 Closed, 3
+  Draft, covering every type and work mode — and 5 Applications (one on a
+  Closed Job). Dev password for every account: `openroles-dev` (bcrypt, cost
+  10); the seed prints the accounts. Descriptions are plain text with
+  paragraphs and `•` bullets — render with `whitespace-pre-line`.
+- **DTOs:** `JobCardDTO.workMode` is now non-null (matches the schema).
+  `JobDetailDTO` adds `description`, `status` (`published | closed` only),
+  `isAcceptingApplications`, `closedAt`, `updatedAt` and the full
+  `CompanyDTO`; still **no `canEdit`**. `CompanyDTO` has no `ownerId`.
+  `closedAt` is derived from `updated_at` for Closed Jobs (no `closed_at`
+  column; closing is the Job's last write) — feeds JSON-LD `validThrough`.
+  `toJobDetailDTO` throws on a Draft rather than render it.
+- **`listPublishedJobs`:** Drizzle join on company; `ILIKE` on title, company
+  name and location with LIKE wildcards escaped and `q` capped at 100 chars;
+  count + page in one `db.batch()` round-trip; page past the end → last page.
+  Also returns `total`. Uncached (ADR-0003).
+- **Cached reads:** `getPublicJobBySlug` (`cacheLife("hours")`, tags
+  `job-${slug}` **and** `company-${companySlug}` — the page shows company
+  details) and `getPublicCompanyBySlug` (tag `company-${slug}`, Published Jobs
+  newest first). `listPublicJobSlugs` / `listPublicCompanySlugs` for
+  `generateStaticParams` (uncached, build-time).
+- **Caching caveat (ADR-0003):** real slugs are a bounded key space, but junk
+  slugs from bots still mint (null) cache entries. Bounded in practice by the
+  in-memory LRU; chunk 5 rejects malformed slugs before the cached read.
+- **For M6:** under `cacheComponents`, `generateStaticParams` must return at
+  least one param — an empty production DB would fail the first build. Chunk 5
+  adds a placeholder fallback.
+- `data/sample-jobs.ts` (M1) deleted.
+- **Board caching (ADR-0003):** plain `/roles` (no filters, page 1) renders
+  `DefaultBoard` — a `'use cache'` component that calls `listPublishedJobs()`
+  with no arguments (one entry, tag **`board`**, `cacheLife("hours")`). Any
+  filter or `page > 1` renders dynamically. Verified: a title changed in the DB
+  stays stale on `/roles` and shows at once on `/roles?q=…`. **M4: publishing,
+  editing or closing a Job must `updateTag("board")`** as well as the job and
+  company tags.
+- **Pagination:** Previous / Next links that keep the active filters
+  (`scroll={false}`), "Page X of Y", "N roles · showing a–b"; disabled ends
+  render as inert spans, not dead links. **Empty states:** "No roles match
+  your search" (filters active → Clear filters) vs "No open roles right now"
+  (empty Board → Post a role).
+- **Detail pages:** `/roles/[slug]` and `/companies/[slug]` prebuild every
+  Public Job / company via `generateStaticParams` (○ static, served from the
+  prerender cache) and read `params` inside `<Suspense>` with a
+  layout-matching skeleton — required by instant-navigation validation; for
+  prebuilt slugs the content is still in the static HTML. `generateMetadata`
+  (title, description, canonical, Open Graph) shares the page's cached read.
+  Slugs failing `isPlausibleSlug()` never reach the cached read.
+- **ADR-0004 confirmed in practice:** unknown slugs, Drafts and malformed
+  slugs render the segment's `not-found.tsx` inside the site layout with
+  **200 + `noindex`**. (Briefly, with `params` awaited outside `<Suspense>`,
+  they returned a real 404 — but dev validation rejects that structure, so
+  the ADR's reasoning holds.)
+- **Empty-DB guard:** `generateStaticParams` falls back to a placeholder slug
+  (`no-roles-yet` / `no-companies-yet`) — under `cacheComponents` an empty
+  array fails the build, which would break the first M6 deploy.
+- **Job page:** closed banner (with closing date + link to the company's open
+  roles), facts card, company card, description as plain text
+  (`whitespace-pre-line`, no user HTML). JSON-LD `JobPosting` (employment
+  type mapped, `TELECOMMUTE` for remote, USD `baseSalary`, `validThrough`
+  for Closed) with `<` escaped per the Next.js JSON-LD guide. Apply and the
+  owner "Edit" affordance are left as a TODO slot for M5 / M4 — dynamic
+  leaves, never in the cached DTO.
+- **Seed:** sets `updated_at` explicitly so Closed Jobs have a realistic
+  closing date (posted N days ago, closed 30 days later).
+- No `metadataBase` yet: canonical / `og:url` are relative, which Next
+  resolves against the deployment URL on Vercel. Revisit in M6 if a custom
+  domain is used.
 
 ---
 
