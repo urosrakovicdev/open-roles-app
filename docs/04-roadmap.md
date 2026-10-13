@@ -120,10 +120,10 @@ No secret values here. Everything below was verified in the setup session.
 - [x] `(marketing)` layout: header (logo → `/`, "Browse roles" → `/roles`,
       "Post a role" → `/dashboard/roles/new`, "Sign in") + footer.
 - [x] Landing page `/`: hero, CTA to browse and to post. Fully static.
-- [ ] `/roles` with hardcoded Job cards; search/filter UI as a small client leaf
+- [x] `/roles` with hardcoded Job cards; search/filter UI as a small client leaf
       (`components/role-filters.tsx`) that writes to the URL (`q`, `type`,
       `workMode`, `page`) via `useRouter`/`useSearchParams`.
-- [ ] Results list wrapped in `<Suspense>` with a skeleton fallback.
+- [x] Results list wrapped in `<Suspense>` with a skeleton fallback.
 - [x] `app/not-found.tsx` and `app/error.tsx` (client) with on-brand UI.
 
 **Done when:** a fast, server-rendered public skin; build output shows `/` as
@@ -154,6 +154,19 @@ static and `/roles` as a static shell with a dynamic hole.
   root error / 404 pages, which sit outside `(marketing)` and bring their own
   minimal chrome. `error.tsx` uses `retry()` (16.4 API; `reset()` is the
   fallback) and shows `error.digest` as a reference — built, not triggered.
+- **Board:** the hardcoded Jobs live in `data/sample-jobs.ts` and are served by
+  the `listPublishedJobs()` stub (filtered + paged in memory), so `/roles`
+  already goes page → DAL → `JobCardDTO`; M2 swaps the stub body for a query
+  and deletes the sample file. `RoleFilters` is a real GET form to `/roles`
+  (works without JS); with JS, selects apply on change and navigation runs in
+  a transition. URL params are untrusted: unknown `type` / `workMode` are
+  dropped (`lib/job-labels.ts` parsers), repeated params take the first value.
+  Both the filters (`useSearchParams`) and the results sit in their own
+  `<Suspense>` with layout-matching skeletons. `JobCard` lives in
+  `components/` (reused by company pages in M2). Dates render with a fixed
+  locale + UTC so server and client agree. Pagination controls and a designed
+  empty state stay in M2 (as the roadmap lists them); the result count shows
+  the current page's count until M2 returns a total.
 
 ---
 

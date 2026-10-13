@@ -16,17 +16,43 @@ import "server-only"
 import { db } from "@/db/drizzle"
 import { verifySession } from "./dal"
 import type { JobCardDTO, JobDetailDTO } from "./dto"
+import { SAMPLE_JOBS } from "./sample-jobs"
+
+const PAGE_SIZE = 10
 
 // PUBLIC: the Board. Published only. Uncached — q is unbounded free text.
-export async function listPublishedJobs(_params: {
+export async function listPublishedJobs({
+  q,
+  type,
+  workMode,
+  page = 1,
+}: {
   q?: string
-  type?: string
-  workMode?: string
+  type?: JobCardDTO["type"]
+  workMode?: JobCardDTO["workMode"]
   page?: number
 }): Promise<{ items: JobCardDTO[]; page: number; totalPages: number }> {
-  // TODO (M2): filter status = 'published', ILIKE search, paginate, map to DTOs.
+  // TODO (M2): query Postgres instead — status = 'published', ILIKE on
+  // title/company/location, same filters and paging, map rows to DTOs — and
+  // delete ./sample-jobs.ts. Until then, filter the M1 sample in memory.
   void db
-  return { items: [], page: 1, totalPages: 1 }
+  const needle = q?.trim().toLowerCase()
+  const matches = SAMPLE_JOBS.filter(
+    (job) =>
+      (!type || job.type === type) &&
+      (!workMode || job.workMode === workMode) &&
+      (!needle ||
+        [job.title, job.companyName, job.location ?? ""].some((field) =>
+          field.toLowerCase().includes(needle),
+        )),
+  )
+  const totalPages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE))
+  const current = Math.min(Math.max(1, page), totalPages)
+  return {
+    items: matches.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE),
+    page: current,
+    totalPages,
+  }
 }
 
 // PUBLIC: one Public Job (Published or Closed) by slug. Cached + tagged.
