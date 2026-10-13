@@ -182,7 +182,7 @@ static and `/roles` as a static shell with a dynamic hole.
 - [x] Indexes: `job(status, published_at)`, `job(company_id)`,
       `application(candidate_id)`.
 - [x] Generate + apply the migration.
-- [ ] Seed (`db:seed`, idempotent): 1 admin, 2 employers each with a company,
+- [x] Seed (`db:seed`, idempotent): 1 admin, 2 employers each with a company,
       3 candidates (known dev password, bcrypt-hashed), ~15 Jobs across all
       statuses/types/work modes, a few Applications.
 - [ ] `data/dto.ts`: `JobCardDTO`, `JobDetailDTO` (with
@@ -227,6 +227,15 @@ search/filter/pagination; detail and company pages are cached.
   interactively whether it's a rename. Applied to Neon `dev`. No separate
   index on `application(job_id)`: the unique `(job_id, candidate_id)` index
   already covers it.
+- **Seed:** one atomic `db.batch()` (neon-http has no interactive
+  transactions; a batch is one transaction) clears all tables in FK order and
+  re-inserts, so a failed run keeps the old data. Fixed ids and slugs → stable
+  URLs across re-seeds. 6 users (1 admin, 2 employers, 3 candidates), 2
+  companies, 17 Jobs — 12 Published (so the Board has a page 2), 2 Closed, 3
+  Draft, covering every type and work mode — and 5 Applications (one on a
+  Closed Job). Dev password for every account: `openroles-dev` (bcrypt, cost
+  10); the seed prints the accounts. Descriptions are plain text with
+  paragraphs and `•` bullets — render with `whitespace-pre-line`.
 
 ---
 
