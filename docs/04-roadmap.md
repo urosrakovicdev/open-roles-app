@@ -172,16 +172,16 @@ static and `/roles` as a static shell with a dynamic hole.
 
 ## M2 · Real data: the read path
 
-- [ ] Schema: replace `jobs.remote` text with a `workMode` pgEnum
+- [x] Schema: replace `jobs.remote` text with a `workMode` pgEnum
       (`remote | hybrid | onsite`); add `accounts` exactly per the Auth.js
       Drizzle adapter (see `docs/research/auth-drizzle-schema.md`); **no**
       `sessions` / `verificationTokens` / `authenticators` tables.
-- [ ] `relations()` for users ↔ companies ↔ jobs ↔ applications (use the
+- [x] `relations()` for users ↔ companies ↔ jobs ↔ applications (use the
       relations API that matches the installed `drizzle-orm` version — the
       research note was written against 0.38; M0 recorded what is installed).
-- [ ] Indexes: `job(status, published_at)`, `job(company_id)`,
+- [x] Indexes: `job(status, published_at)`, `job(company_id)`,
       `application(candidate_id)`.
-- [ ] Generate + apply the migration.
+- [x] Generate + apply the migration.
 - [ ] Seed (`db:seed`, idempotent): 1 admin, 2 employers each with a company,
       3 candidates (known dev password, bcrypt-hashed), ~15 Jobs across all
       statuses/types/work modes, a few Applications.
@@ -208,7 +208,25 @@ static and `/roles` as a static shell with a dynamic hole.
 search/filter/pagination; detail and company pages are cached.
 
 
-**M2 notes:** _(decisions, deviations, out-of-scope findings)_
+**M2 notes:**
+
+- **Chunks:** `m2-1-schema` → `m2-2-seed` → `m2-3-dal` → `m2-4-board` →
+  `m2-5-detail-pages`.
+- **Schema:** `job.work_mode` is a `work_mode` enum, **NOT NULL default
+  `onsite`** (every Job has one; the M1 DTO allowed null). Added
+  `job.updated_at` (`$onUpdate`), which the data model listed but the starter
+  schema lacked. `account` copies the adapter's property names, types, FK and
+  composite PK; SQL column names are snake_case like the rest of the schema —
+  the adapter maps by property name. `AdapterAccountType` is imported from
+  `next-auth/adapters` (re-exports `@auth/core/adapters`; `@auth/core` is only
+  a transitive dependency).
+- **Relations** (v1 API) live in `schema/relations.ts` — jobs ↔ applications
+  would otherwise import each other.
+- **Migrations 0001 + 0002:** generated in two steps (add `work_mode`, then
+  drop `remote`) because one step makes `drizzle-kit generate` ask
+  interactively whether it's a rename. Applied to Neon `dev`. No separate
+  index on `application(job_id)`: the unique `(job_id, candidate_id)` index
+  already covers it.
 
 ---
 
