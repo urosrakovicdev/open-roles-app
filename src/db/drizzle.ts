@@ -9,8 +9,8 @@
 import "server-only"
 import { drizzle } from "drizzle-orm/neon-http"
 import * as schema from "@/db/schema"
+import { env } from "@/lib/env"
 
 // `schema` (tables + relations) is passed so the relational query API
 // (db.query.*) knows your tables.
-// TODO (M0): read env.DATABASE_URL from @/lib/env instead of process.env.
-export const db = drizzle(process.env.DATABASE_URL!, { schema })
+export const db = drizzle(env.DATABASE_URL, { schema })

@@ -8,6 +8,9 @@ import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // Next 16.4 asks for this explicitly alongside cacheComponents; new projects
+  // should enable it. https://nextjs.org/docs/app/guides/adopting-partial-prefetching
+  partialPrefetching: true,
 
   // Self-hosting multiple instances only (not needed on Vercel):
   //   deploymentId: process.env.DEPLOYMENT_VERSION,

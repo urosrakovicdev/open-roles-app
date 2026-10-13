@@ -112,7 +112,9 @@ In this order, once per session (they're short):
 Next.js 16, Auth.js v5 and Drizzle all changed APIs recently. Before using an
 API you're not certain of, check the official docs (WebFetch):
 
-- Next.js — https://nextjs.org/docs (App Router)
+- Next.js — **first** the docs bundled with the installed version in
+  `node_modules/next/dist/docs/` (they match exactly; see `AGENTS.md`, which
+  `next dev` writes — keep it committed), then https://nextjs.org/docs
 - Auth.js — https://authjs.dev
 - Drizzle — https://orm.drizzle.team
 - Tailwind v4 — https://tailwindcss.com/docs
@@ -126,6 +128,15 @@ Known Next 16 facts this repo relies on (re-verify if something errors):
 - `updateTag(tag)` is Server-Action-only. Bare `revalidateTag(tag)` is
   deprecated; pass a profile: `revalidateTag(tag, "max")`.
 - `next lint` was removed — lint with the ESLint CLI (`npm run lint`).
+- **Instant-navigation validation** (16.3+, on with `cacheComponents` +
+  `partialPrefetching`): every route segment that reads request-time data
+  (session, `params`, `searchParams`, `connection()`) needs its **own** boundary —
+  a `loading.tsx` in that segment or a `<Suspense>` inside its page. A parent
+  `loading.tsx` covers the first load but not navigation between siblings.
+  Errors show in the dev log and `next build`.
+  See https://nextjs.org/docs/messages/blocking-prerender-dynamic.
+- `verifySession()` calls `await connection()` before `auth()` — Auth.js uses
+  `crypto.getRandomValues()` before reading cookies, which prerendering rejects.
 
 Package versions in `package.json` are indicative. In M0, install current
 versions and fix any API drift the install surfaces (record what you landed on

@@ -52,19 +52,62 @@ No secret values here. Everything below was verified in the setup session.
 
 ## M0 · Boot the project
 
-- [ ] `npm install` (resolve current versions; fix any drift — e.g. ESLint flat
+- [x] `npm install` (resolve current versions; fix any drift — e.g. ESLint flat
       config for `eslint-config-next`, `drizzle-orm` major version and its
       relations API, `next-auth` beta API). Record versions in **M0 notes** below.
 - [x] **Human step:** create a Neon project, put `DATABASE_URL` in `.env.local`;
       generate `AUTH_SECRET` (see **Setup status** — not `npx auth secret`).
       Done in setup.
-- [ ] `src/lib/env.ts` validates env; `src/db/drizzle.ts` reads `env.DATABASE_URL`.
-- [ ] `npm run db:generate && npm run db:migrate` with the starter schema.
-- [ ] `npm run dev` → the landing page renders; typecheck / lint / build pass.
+- [x] `src/lib/env.ts` validates env; `src/db/drizzle.ts` reads `env.DATABASE_URL`.
+- [x] `npm run db:generate && npm run db:migrate` with the starter schema.
+- [x] `npm run dev` → the landing page renders; typecheck / lint / build pass.
 
 **Done when:** the app boots, builds, and has migrated a real database.
 
-**M0 notes:** _(record resolved versions and any deviations here)_
+**M0 notes:**
+
+- **Versions (2026-10-13):** next 16.4.0, react / react-dom 19.3.0, next-auth
+  5.0.0-beta.32 (pinned exact — the `beta` tag drifts; `latest` is still v4),
+  @auth/drizzle-adapter 1.11.3 (shares @auth/core 0.41.3 with next-auth),
+  drizzle-orm 0.45.4 (relations v1 API — `relations()` from `drizzle-orm`),
+  drizzle-kit 0.31.11, @neondatabase/serverless 1.2.0, zod 4.6.7, bcryptjs
+  3.0.3, tailwindcss + @tailwindcss/postcss 4.3.3, eslint-config-next 16.4.0,
+  tsx 4.23.15, prettier 3.9.10, dotenv 18.0.7, @types/node 24 (matches Node 24).
+- **Held back on purpose:** TypeScript **6.0.3**, not 7 (typescript-eslint
+  needs `<6.1`); ESLint **9**, not 10 (eslint-plugin-react / -import /
+  -jsx-a11y peer only up to 9). Revisit when those peers widen.
+- **`npm audit`:** 0 in runtime deps; 9 in dev-only tooling (braces via
+  eslint-config-next, old esbuild via drizzle-kit). The only "fix" is
+  `--force` downgrades — left as is.
+- **Next 16.4 drift fixed:** `partialPrefetching: true` set (Next asks for it
+  with `cacheComponents`); `next build` rewrote `tsconfig.json`
+  (`jsx: react-jsx`, include `.next/dev/types`) — kept.
+- **Instant-navigation validation (16.3+)** broke scaffold stubs that read
+  request data outside `<Suspense>`. Minimal fixes; the real UI still belongs
+  to later milestones:
+  - public `/roles`, `/roles/[slug]`, `/companies/[slug]`: the `searchParams` /
+    `params` read moved into a child component inside `<Suspense>` (M1/M2
+    replace these with the real shell + cached reads);
+  - dashboard + admin: a minimal `loading.tsx` in **every** segment
+    (`verifySession()` stays at the top of each page). M6 makes them on-brand;
+  - `verifySession()` now calls `await connection()` before `auth()`.
+
+  Documented in CLAUDE.md › Known Next 16 facts.
+- **Pulled forward from M3 (types only):** `src/types/next-auth.d.ts` declares
+  `User.role` so the scaffold `dal.ts` typechecks. M3 still owns the
+  jwt/session callbacks that populate it, and the `JWT` augmentation.
+- **Env:** `env.ts` validates `DATABASE_URL` as a postgres URL and
+  `AUTH_SECRET` ≥ 32 chars; on failure it names the bad keys, never values.
+  `drizzle.config.ts` loads dotenv with `quiet: true` (v17+ logs by default).
+- **Lint:** `_`-prefixed unused args/vars are allowed (the scaffold stub
+  convention). One warning remains by design: unused `db` import in the M5
+  stub `data/applications.ts`.
+- **DB:** migration `0000_remarkable_luke_cage` applied to Neon `dev`
+  (`br-restless-frog-b925mi7k`): user, company, job, application + 4 enums.
+- **For later:** the data model lists `job.updatedAt` but the starter schema
+  lacks it — add it in M2 with the `workMode` change. Signed-out
+  `/dashboard/**` currently returns 200 and redirects in-stream; M3 proxy
+  makes it a real redirect.
 
 ---
 
