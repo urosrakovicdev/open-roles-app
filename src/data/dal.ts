@@ -10,12 +10,17 @@
 import "server-only"
 import { cache } from "react"
 import { redirect } from "next/navigation"
+import { connection } from "next/server"
 import { auth } from "@/auth"
 
 // verifySession() — the project's single auth function.
 // Wrapped in React cache() so it runs once per request no matter how many
 // callers (Server Components, Actions, Route Handlers) invoke it.
 export const verifySession = cache(async () => {
+  // Mark this as request-time work before Auth.js runs: auth() uses
+  // crypto.getRandomValues() before it reads cookies, which cacheComponents
+  // rejects during prerendering. https://nextjs.org/docs/messages/blocking-prerender-crypto
+  await connection()
   const session = await auth() // Auth.js
   if (!session?.user?.id) redirect("/login") // authentication
   return { userId: session.user.id, role: session.user.role }

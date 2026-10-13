@@ -8,6 +8,7 @@
 // Docs: https://nextjs.org/docs/app/api-reference/functions/generate-static-params
 //       https://nextjs.org/docs/app/api-reference/functions/generate-metadata
 
+import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { getPublicJobBySlug } from "@/data/jobs"
@@ -22,14 +23,24 @@ export async function generateMetadata({
   return { title: slug }
 }
 
-export default async function RoleDetailPage({
+// TODO (M2): generateStaticParams (listPublicJobSlugs) + the cached DAL read
+// let this page prerender; until then the params read sits behind <Suspense>.
+export default function RoleDetailPage({
   params,
 }: {
   params: Promise<{ slug: string }>
 }) {
+  return (
+    <Suspense fallback={<main>Loading…</main>}>
+      <RoleDetail params={params} />
+    </Suspense>
+  )
+}
+
+async function RoleDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const job = await getPublicJobBySlug(slug)
   if (!job) notFound()
-  // TODO: render role detail + an "Apply" button (Client Component → Server Action).
+  // TODO (M2): render role detail + an "Apply" button (Client Component → Server Action).
   return <main>{/* role: {slug} */}</main>
 }

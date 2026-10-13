@@ -8,5 +8,24 @@ import nextTs from "eslint-config-next/typescript"
 export default defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores([".next/**", "out/**", "build/**", "migrations/**", "next-env.d.ts"]),
+  {
+    // `_`-prefixed names are deliberately unused (stub args, ignored values).
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "migrations/**",
+    "next-env.d.ts",
+  ]),
 ])
