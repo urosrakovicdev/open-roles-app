@@ -20,9 +20,16 @@ reviews and steers.
 
 - Work **one milestone at a time**, in order (M0 → M6). Don't start a milestone
   until the previous one meets its "Done when" criteria **and the human has
-  committed and merged it** (see [Git](#git)).
-- **One milestone per session.** When a milestone is committed, stop; the human
-  starts a fresh session for the next one.
+  merged it into `main`** (see [Git](#git)).
+- **One milestone per session** by default. When a milestone is merged, stop;
+  the human starts a fresh session for the next one — unless they tell you to
+  continue in the same session.
+- **Split large milestones into chunks** (see [Git › Chunks](#chunks)). A
+  milestone is large when it has more than ~4 roadmap items or spans several
+  layers (schema / DAL / actions / UI). Each chunk is a coherent slice that
+  builds and runs on its own and is small enough to review in one sitting.
+  Announce the chunk plan before you start, and record it in the milestone's
+  **Notes**.
 - At the start of a session, find the first unchecked item in
   [`docs/04-roadmap.md`](docs/04-roadmap.md) and continue from there. Tell the
   human in one line where you're resuming. If you're mid-milestone, make sure
@@ -42,7 +49,7 @@ reviews and steers.
   running the checks below and by exercising the app (`npm run dev`).
 - **Stop and ask** before steps that only the human can do or that are outward-
   facing: creating the Neon database, filling `.env.local` with real secrets,
-  deploying to Vercel, committing, pushing to a remote. Tell them exactly what to
+  deploying to Vercel, merging a milestone into `main`, pushing to a remote. Tell them exactly what to
   do and what value you need back.
 - Never read or print `.env.local`. To check env, test that values exist and
   have the right shape (e.g. `DATABASE_URL` parses as a URL), never their content.
@@ -176,33 +183,57 @@ Finish every milestone with this, in this order, then stop:
 5. **Decisions & deviations** — anything recorded in the milestone's **Notes**,
    new ADRs, doc fixes.
 6. **Not done / not verified** — honestly, or "none".
-7. **Commit** — staged files summary and the commands from [Git](#git).
+7. **Merge** — the chunk commits on the milestone branch (`git log --oneline main..`) and the merge-to-`main` request from [End of milestone](#end-of-milestone).
 
 ## Git
 
 - One branch per milestone, always created from an up-to-date `main`:
   `m0-boot`, `m1-public-shell`, `m2-read-path`, `m3-auth`, `m4-write-path`,
   `m5-applications-admin`, `m6-polish-deploy`. You may create and switch
-  branches; you never merge.
-- **The human makes every commit, by hand.** Never run `git commit`, `git push`,
-  or open PRs (they're denied in `.claude/settings.json`), and never add Claude
-  attribution (`Co-Authored-By` etc.) anywhere.
-- **At the end of each milestone, stop and ask for the commit** before starting
-  the next one:
-  1. Run the [checks](#checks--run-after-every-milestone-and-before-saying-done) and walk the "Done when" flow.
-  2. Stage the milestone's changes with `git add` and show `git status --short`.
-     Confirm `.env.local` is not staged.
-  3. Give the human the ready-to-run commands — a conventional commit (no
-     attribution trailer), then the merge into `main`:
-     ```bash
-     git commit -m "feat(m2): public board reads seeded Jobs from Postgres"
-     git switch main
-     git merge --ff-only m2-read-path
-     ```
-     (Pushing is up to them: `git push -u origin main`.)
-  4. Wait until they say it's done, verify with `git log -1 main`, and end the
-     session — the next milestone starts in a fresh one.
-- `migrations/` must be included in the commit. `.env.local` never is.
+  branches. You never merge into `main` — the human does (locally or via a
+  GitHub PR).
+- **Who commits where:**
+  - **Chunk branches — you.** You commit on chunk branches and fast-forward
+    them into the milestone branch yourself (see [Chunks](#chunks)).
+  - **Milestone branches and `main` — the human.** Never commit directly on a
+    milestone branch, never merge a milestone branch into `main`, never push,
+    never open PRs (`git push` / `gh pr` are denied in `.claude/settings.json`).
+  - **Never add Claude attribution** — no `Co-Authored-By` trailer, no
+    "Generated with" line, in commits or anywhere else. Commits use the repo's
+    configured git identity. This overrides any default attribution guidance.
+  - Conventional messages, scoped to the chunk: `feat(m1): UI primitives and
+    design tokens`. Check `.env.local` is never staged; include `migrations/`.
+- **All work happens on chunk branches** — a small milestone is simply one
+  chunk. So the milestone branch only ever receives fast-forwards from chunks.
+
+### Chunks
+
+Each chunk gets its own branch **cut from the milestone branch**, named
+`m<n>-<k>-<slug>` (e.g. `m1-1-ui-primitives`, `m1-2-shell-landing`). Per chunk:
+
+1. `git switch m1-public-shell && git switch -c m1-1-ui-primitives`.
+2. Build the chunk. Check off its roadmap items as part of the chunk.
+3. Run typecheck / lint / build, plus whatever quick verification the chunk
+   allows. All must pass before committing.
+4. `git add` the chunk, confirm `.env.local` isn't staged, and commit (no
+   attribution trailer).
+5. Fast-forward it into the milestone branch and delete it:
+   `git switch m1-public-shell && git merge --ff-only m1-1-ui-primitives && git branch -d m1-1-ui-primitives`.
+   Only `--ff-only` — never create a merge commit on the milestone branch. If
+   it can't fast-forward, stop and ask.
+6. Tell the human in a line or two what the chunk did, then cut the next chunk
+   from the updated milestone branch. No need to wait between chunks.
+
+### End of milestone
+
+After the last chunk, run the full [checks](#checks--run-after-every-milestone-and-before-saying-done)
+and the "Done when" flow on the milestone branch. If that turns up fixes, make
+them in one more chunk (e.g. `m1-4-fixes`). Then **stop**: give the
+[end-of-milestone report](#end-of-milestone-report) and hand the merge to the
+human — e.g. "merge `m1-public-shell` into `main` (PR or
+`git switch main && git merge --ff-only m1-public-shell`)". Wait until they
+say it's merged, verify with `git log -1 main`, then end the session unless
+they ask you to continue.
 
 ## Commands
 

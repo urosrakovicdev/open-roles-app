@@ -6,7 +6,13 @@
 // Docs: https://nextjs.org/docs/app/api-reference/file-conventions/layout
 
 import type { Metadata } from "next"
+import { Geist } from "next/font/google"
 import "./globals.css"
+
+// Self-hosted at build time by next/font; exposed as a CSS variable that the
+// `--font-sans` token in globals.css points at.
+// Docs: https://nextjs.org/docs/app/api-reference/components/font
+const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" })
 
 export const metadata: Metadata = {
   title: { default: "OpenRoles", template: "%s · OpenRoles" },
@@ -19,8 +25,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" className={geistSans.variable}>
+      <body className="min-h-dvh font-sans">{children}</body>
     </html>
   )
 }

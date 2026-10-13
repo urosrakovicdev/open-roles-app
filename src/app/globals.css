@@ -1,5 +1,57 @@
 /* Global styles. Tailwind CSS v4 is imported here (config-in-CSS).
-   Docs: https://tailwindcss.com/docs/installation/framework-guides/nextjs */
+   Design tokens live in @theme: each variable becomes a utility
+   (--color-surface → bg-surface / text-surface, --radius-card → rounded-card).
+   Components use these semantic names, never raw palette colors, so the look
+   can change in one place.
+   Docs: https://tailwindcss.com/docs/installation/framework-guides/nextjs
+         https://tailwindcss.com/docs/theme */
 @import "tailwindcss";
 
-/* Add design tokens / @theme customizations below as the UI grows. */
+@theme {
+  /* Surfaces & text — a neutral, slightly cool gray scale. */
+  --color-canvas: oklch(0.985 0.002 247); /* page background */
+  --color-surface: oklch(1 0 0); /* cards, inputs */
+  --color-surface-muted: oklch(0.967 0.003 265); /* subtle fills, hovers */
+  --color-border: oklch(0.922 0.004 265);
+  --color-border-strong: oklch(0.869 0.006 265);
+  --color-fg: oklch(0.21 0.02 265); /* body text */
+  --color-fg-muted: oklch(0.5 0.02 265); /* secondary text */
+  --color-fg-subtle: oklch(0.62 0.015 265); /* placeholders, meta */
+
+  /* Brand — a calm teal. `brand-fg` is text on a brand fill. */
+  --color-brand: oklch(0.52 0.1 190);
+  --color-brand-hover: oklch(0.46 0.095 190);
+  --color-brand-soft: oklch(0.96 0.03 190); /* tinted backgrounds */
+  --color-brand-fg: oklch(0.99 0.01 190);
+
+  /* Status */
+  --color-success: oklch(0.55 0.13 150);
+  --color-success-soft: oklch(0.96 0.04 150);
+  --color-warning: oklch(0.6 0.13 70);
+  --color-warning-soft: oklch(0.97 0.05 85);
+  --color-danger: oklch(0.55 0.19 25);
+  --color-danger-hover: oklch(0.49 0.18 25);
+  --color-danger-soft: oklch(0.96 0.03 25);
+
+  /* Radius */
+  --radius-control: 0.5rem; /* buttons, inputs, badges */
+  --radius-card: 0.75rem;
+}
+
+/* The font comes from next/font (a CSS variable set on <html> in the root
+   layout), so it's mapped with `inline` to resolve at runtime. */
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  body {
+    @apply bg-canvas text-fg antialiased;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand;
+  }
+}

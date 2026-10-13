@@ -1,6 +1,13 @@
 // Small shared helpers (formatting, slugify, className merge). Pure functions —
 // safe to import from server OR client. Keep DB/auth logic OUT of here.
 
+// Join class names, skipping falsy values: cn("a", cond && "b").
+export function cn(
+  ...classes: Array<string | false | null | undefined>
+): string {
+  return classes.filter(Boolean).join(" ")
+}
+
 export function slugify(input: string): string {
   return input
     .toLowerCase()
