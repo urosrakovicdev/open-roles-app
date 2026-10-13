@@ -4,9 +4,10 @@ Build in thin vertical slices. Each milestone ends in something runnable. Check
 items off (`- [x]`) as you go. After each milestone: run the checks in
 [`CLAUDE.md`](../CLAUDE.md#checks--run-after-every-milestone-and-before-saying-done),
 self-review against the checklist in [`03-architecture.md`](03-architecture.md#review-checklist),
-then stage and **ask the human to commit** (they commit by hand — see
-[`CLAUDE.md` › Git](../CLAUDE.md#git)). One milestone per session, each on its
-own branch (`m0-boot`, `m1-public-shell`, …) ending with the
+then **ask the human to merge** the milestone into `main`. One milestone per
+session, each on its own branch (`m0-boot`, `m1-public-shell`, …); all work
+happens on chunk branches cut from it, which the agent commits and
+fast-forwards in ([`CLAUDE.md` › Git](../CLAUDE.md#git)). Each milestone ends with the
 [end-of-milestone report](../CLAUDE.md#end-of-milestone-report). Record
 decisions and deviations in the milestone's **Notes** line.
 
@@ -36,9 +37,9 @@ No secret values here. Everything below was verified in the setup session.
   Nothing pushed — the human pushes by hand.
 - **Claude Code permissions:** `.claude/settings.json` allows npm scripts and
   install, named `npx` tools, `node`, local `curl`, non-destructive git, and
-  fetching the Next.js / Auth.js / Drizzle / Tailwind docs.
-  Denies `git commit`, `git push`, `gh pr`, `npx auth`, the Neon CLI, and reading
-  `.env.local`.
+  fetching the Next.js / Auth.js / Drizzle / Tailwind docs, `git commit` and
+  `git merge --ff-only` (chunk branches only — CLAUDE.md › Git).
+  Denies `git push`, `gh pr`, `npx auth`, the Neon CLI, and reading `.env.local`.
 - **Neon agent skills** (`neon`, `neon-postgres`) installed in `.claude/skills/`
   as reference only — see `CLAUDE.md` › Environment & safety.
 - **Skipped / deferred to M6:** Vercel project; set Vercel's function region to
@@ -113,7 +114,7 @@ No secret values here. Everything below was verified in the setup session.
 
 ## M1 · Public shell, no data yet
 
-- [ ] Tailwind design tokens in `globals.css` (`@theme`: colors, radius, font);
+- [x] Tailwind design tokens in `globals.css` (`@theme`: colors, radius, font);
       a small set of UI primitives in `components/ui/` (Button variants, Input,
       Textarea, Select, Label, Card, Badge, Container).
 - [ ] `(marketing)` layout: header (logo → `/`, "Browse roles" → `/roles`,
@@ -129,7 +130,22 @@ No secret values here. Everything below was verified in the setup session.
 static and `/roles` as a static shell with a dynamic hole.
 
 
-**M1 notes:** _(decisions, deviations, out-of-scope findings)_
+**M1 notes:**
+
+- **Chunks:** `m1-1-ui-primitives` (tokens + `components/ui`) →
+  `m1-2-shell-landing` (marketing layout, landing, not-found, error) →
+  `m1-3-board` (`/roles` hardcoded cards, filters, skeleton).
+- **Design tokens:** semantic names only (`canvas`, `surface`, `fg`,
+  `fg-muted`, `border`, `brand`, `success` / `warning` / `danger` + `-soft`),
+  OKLCH values, neutral cool grays + a calm teal brand. Light theme only (dark
+  mode isn't in the brief). Radius tokens `rounded-control` / `rounded-card`.
+  Font: Geist via `next/font/google`, mapped to `--font-sans`.
+- **Primitives:** Button (+ `buttonClasses()` so a `<Link>` can look like a
+  button without nesting `<button>` in `<a>`), Input, Textarea, native Select
+  with a chevron, Label, Card (`as` prop for `<article>`), Badge (tones),
+  Container (max-w-5xl, 16px gutter). All Server Components; invalid state is
+  styled from `aria-invalid`. `cn()` added to `lib/utils.ts` (no
+  tailwind-merge dependency — callers don't pass conflicting classes).
 
 ---
 
