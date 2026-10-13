@@ -117,14 +117,14 @@ No secret values here. Everything below was verified in the setup session.
 - [x] Tailwind design tokens in `globals.css` (`@theme`: colors, radius, font);
       a small set of UI primitives in `components/ui/` (Button variants, Input,
       Textarea, Select, Label, Card, Badge, Container).
-- [ ] `(marketing)` layout: header (logo → `/`, "Browse roles" → `/roles`,
+- [x] `(marketing)` layout: header (logo → `/`, "Browse roles" → `/roles`,
       "Post a role" → `/dashboard/roles/new`, "Sign in") + footer.
-- [ ] Landing page `/`: hero, CTA to browse and to post. Fully static.
+- [x] Landing page `/`: hero, CTA to browse and to post. Fully static.
 - [ ] `/roles` with hardcoded Job cards; search/filter UI as a small client leaf
       (`components/role-filters.tsx`) that writes to the URL (`q`, `type`,
       `workMode`, `page`) via `useRouter`/`useSearchParams`.
 - [ ] Results list wrapped in `<Suspense>` with a skeleton fallback.
-- [ ] `app/not-found.tsx` and `app/error.tsx` (client) with on-brand UI.
+- [x] `app/not-found.tsx` and `app/error.tsx` (client) with on-brand UI.
 
 **Done when:** a fast, server-rendered public skin; build output shows `/` as
 static and `/roles` as a static shell with a dynamic hole.
@@ -146,6 +146,14 @@ static and `/roles` as a static shell with a dynamic hole.
   Container (max-w-5xl, 16px gutter). All Server Components; invalid state is
   styled from `aria-invalid`. `cn()` added to `lib/utils.ts` (no
   tailwind-merge dependency — callers don't pass conflicting classes).
+- **Shell:** the landing page moved from `app/page.tsx` into `(marketing)/` so
+  it shares the header/footer (URL unchanged). Header hides "Post a role" below
+  `sm` to fit 360px — the hero CTA covers it. Footer has no copyright year
+  (`new Date()` in a static prerender is an unstable value under
+  cacheComponents). `components/logo.tsx` is shared by the header and the
+  root error / 404 pages, which sit outside `(marketing)` and bring their own
+  minimal chrome. `error.tsx` uses `retry()` (16.4 API; `reset()` is the
+  fallback) and shows `error.digest` as a reference — built, not triggered.
 
 ---
 
