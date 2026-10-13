@@ -314,10 +314,10 @@ search/filter/pagination; detail and company pages are cached.
 - [x] `data/dal.ts`: `verifySession()` (redirects to `/login`),
       `getOptionalSession()` (no redirect, for header UI),
       `requireRole(...roles)`.
-- [ ] `actions/auth.ts`: `signupAction` (duplicate email → field error),
+- [x] `actions/auth.ts`: `signupAction` (duplicate email → field error),
       `loginAction` (catch `AuthError` → friendly message, respect
       `callbackUrl`), `logoutAction`.
-- [ ] Client forms `components/forms/{login,signup}-form.tsx` with
+- [x] Client forms `components/forms/{login,signup}-form.tsx` with
       `useActionState`, field errors, pending state.
 - [x] `proxy.ts`: redirect signed-out users from `/dashboard/**` and `/admin/**`
       to `/login?callbackUrl=…`; redirect signed-in users away from
@@ -356,6 +356,17 @@ the role-aware `/dashboard`; `/admin` bounces non-admins.
 - **`createUser`** hashes in the DAL (bcrypt cost 10, same as the seed) and
   uses `ON CONFLICT (email) DO NOTHING` → `email_taken`, so a signup race
   can't surface as a 500.
+- **Auth actions:** state shape `{ message?, errors?, fields? }` — `fields`
+  echoes name / email / role (never the password) so a failed submit keeps
+  the form filled. Login shows one "Invalid email or password." for unknown
+  email and wrong password alike. `callbackUrl` is honoured only for same-site
+  relative paths (`/x` yes; `//x`, `/\x`, absolute URLs → `/dashboard`).
+  Signup starts the session and lands on `/dashboard` (no callbackUrl).
+- **Auth pages:** new `(auth)/layout.tsx` (wordmark + centred card, no site
+  nav). `/signup` is fully static; `/login` is a static shell with the form
+  behind `<Suspense>` because it reads `?callbackUrl` — streamed as server
+  HTML, so both forms submit without JS. Both are `noindex`. Shared
+  `components/forms/field-error.tsx` links messages via `aria-describedby`.
 
 ---
 
