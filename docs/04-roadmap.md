@@ -322,9 +322,9 @@ search/filter/pagination; detail and company pages are cached.
 - [x] `proxy.ts`: redirect signed-out users from `/dashboard/**` and `/admin/**`
       to `/login?callbackUrl=…`; redirect signed-in users away from
       `/login`/`/signup`. Cookie-only, no DB.
-- [ ] Marketing header shows "Dashboard / Sign out" when signed in (dynamic
+- [x] Marketing header shows "Dashboard / Sign out" when signed in (dynamic
       leaf behind `<Suspense>` so the rest of the shell stays static).
-- [ ] `(app)` layout: dashboard nav that adapts to role; still not a security
+- [x] `(app)` layout: dashboard nav that adapts to role; still not a security
       boundary — every page calls the DAL.
 
 **Done when:** you can sign up as candidate or employer, log in/out, and reach
@@ -367,6 +367,24 @@ the role-aware `/dashboard`; `/admin` bounces non-admins.
   behind `<Suspense>` because it reads `?callbackUrl` — streamed as server
   HTML, so both forms submit without JS. Both are `noindex`. Shared
   `components/forms/field-error.tsx` links messages via `aria-describedby`.
+- **Header:** `HeaderAccount` (`getOptionalSession()`) behind `<Suspense>`
+  with a neutral placeholder — no "Sign in" flash for signed-in visitors.
+  Sign-out is a `<form action={logoutAction}>` (POST, works without JS).
+  Consequence: every marketing page is now ◐ instead of ○ — the content is
+  still in the prerendered HTML (checked for `/` and a prebuilt Job page);
+  only the account corner streams.
+- **Dashboard chrome:** `(app)` layout = top bar (wordmark + Sign out) and a
+  Role-aware `DashboardNav` behind `<Suspense>` (no top-level session read in
+  the layout). Nav lists only routes that exist today — Candidate: Overview,
+  My applications, Settings; Employer: + Post a role, Applications; Admin:
+  Overview, Admin console, Settings. **M4:** add "My roles"
+  (`/dashboard/roles`) and "Company" to the Employer nav. Active link via a
+  small client `NavLink` (`aria-current`).
+- **`/dashboard`:** Role-aware quick-link cards (M5 adds the stats).
+  **`/admin`:** heading + back link; non-admins are redirected to
+  `/dashboard` by `requireRole("admin")` (streamed redirect — the status is
+  200 because `loading.tsx` has already started the response).
+- Shared `lib/role-labels.ts` for Role display names.
 
 ---
 
