@@ -197,7 +197,7 @@ static and `/roles` as a static shell with a dynamic hole.
   - `listPublicJobSlugs()` for `generateStaticParams`.
 - [x] `data/companies.ts`: `getPublicCompanyBySlug(slug)` (cached, tag
       `company-${slug}`) with its Published Jobs.
-- [ ] Wire `/roles` (default view cached one level up — ADR-0003; filtered view
+- [x] Wire `/roles` (default view cached one level up — ADR-0003; filtered view
       dynamic), pagination controls, empty state.
 - [ ] `/roles/[slug]`: detail, `generateMetadata` (title, description, OG),
       `generateStaticParams`, closed state banner, soft-404 UI (ADR-0004),
@@ -259,6 +259,18 @@ search/filter/pagination; detail and company pages are cached.
   least one param — an empty production DB would fail the first build. Chunk 5
   adds a placeholder fallback.
 - `data/sample-jobs.ts` (M1) deleted.
+- **Board caching (ADR-0003):** plain `/roles` (no filters, page 1) renders
+  `DefaultBoard` — a `'use cache'` component that calls `listPublishedJobs()`
+  with no arguments (one entry, tag **`board`**, `cacheLife("hours")`). Any
+  filter or `page > 1` renders dynamically. Verified: a title changed in the DB
+  stays stale on `/roles` and shows at once on `/roles?q=…`. **M4: publishing,
+  editing or closing a Job must `updateTag("board")`** as well as the job and
+  company tags.
+- **Pagination:** Previous / Next links that keep the active filters
+  (`scroll={false}`), "Page X of Y", "N roles · showing a–b"; disabled ends
+  render as inert spans, not dead links. **Empty states:** "No roles match
+  your search" (filters active → Clear filters) vs "No open roles right now"
+  (empty Board → Post a role).
 
 ---
 

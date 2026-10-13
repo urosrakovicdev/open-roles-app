@@ -7,12 +7,13 @@
 // Docs: https://nextjs.org/docs/app/api-reference/file-conventions/page#searchparams-optional
 
 import type { Metadata } from "next"
+import { cacheLife, cacheTag } from "next/cache"
 import { Suspense } from "react"
-import { JobCard } from "@/components/job-card"
 import { RoleFilters } from "@/components/role-filters"
 import { Container } from "@/components/ui/container"
 import { listPublishedJobs } from "@/data/jobs"
 import { parseEmploymentType, parseWorkMode } from "@/lib/job-labels"
+import { BoardResults } from "./_components/board-results"
 import {
   RoleFiltersSkeleton,
   RoleListSkeleton,
@@ -71,32 +72,28 @@ async function RoleResults({
 }) {
   const params = await searchParams
   // URL params are untrusted: unknown filter values are ignored, not passed on.
-  const { items } = await listPublishedJobs({
-    q: first(params.q),
-    type: parseEmploymentType(first(params.type)),
-    workMode: parseWorkMode(first(params.workMode)),
-    page: Number(first(params.page)) || 1,
-  })
-  // TODO (M2): pagination controls (page / totalPages) and a designed empty state.
+  const q = first(params.q)?.trim() || undefined
+  const type = parseEmploymentType(first(params.type))
+  const workMode = parseWorkMode(first(params.workMode))
+  const page = Number(first(params.page)) || 1
 
-  return (
-    <section aria-label="Results" className="space-y-4">
-      <p className="text-sm text-fg-muted" aria-live="polite">
-        {items.length === 1 ? "1 role" : `${items.length} roles`}
-      </p>
-      {items.length > 0 ? (
-        <ul className="space-y-4">
-          {items.map((job) => (
-            <li key={job.slug}>
-              <JobCard job={job} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="py-10 text-center text-fg-muted">
-          No roles match these filters.
-        </p>
-      )}
-    </section>
-  )
+  // The plain /roles view (most traffic) is served from one cached entry.
+  if (!q && !type && !workMode && page <= 1) {
+    return <DefaultBoard />
+  }
+
+  // Filtered or paged: dynamic, never cached — q is unbounded (ADR-0003).
+  const result = await listPublishedJobs({ q, type, workMode, page })
+  return <BoardResults {...result} filters={{ q, type, workMode }} />
+}
+
+// ADR-0003 "cached one level up": the Board read stays uncached in the DAL;
+// this component calls it with NO arguments, so there is exactly one entry.
+// Tag `board` — publishing/closing a Job must updateTag("board") (M4).
+async function DefaultBoard() {
+  "use cache"
+  cacheLife("hours")
+  cacheTag("board")
+  const result = await listPublishedJobs({})
+  return <BoardResults {...result} filters={{}} />
 }
