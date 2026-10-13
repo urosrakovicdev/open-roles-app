@@ -85,13 +85,18 @@ function seedJobs(): NewJob[] {
   const BP = "company-brightpath"
   // Published Jobs are the Board (12 → two pages of 10). Closed stay reachable
   // at their URL (ADR-0005). Drafts are never public.
+  // updatedAt is set explicitly: a Closed Job's closing date is derived from
+  // it (JobDetailDTO.closedAt → JSON-LD validThrough).
   const published = (days: number) => ({
     status: "published" as const,
     publishedAt: daysAgo(days),
+    updatedAt: daysAgo(days),
   })
+  // Published `days` ago, closed 30 days after that.
   const closed = (days: number) => ({
     status: "closed" as const,
     publishedAt: daysAgo(days),
+    updatedAt: daysAgo(Math.max(1, days - 30)),
   })
   const draft = { status: "draft" as const, publishedAt: null }
 

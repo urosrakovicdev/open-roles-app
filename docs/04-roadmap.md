@@ -199,10 +199,10 @@ static and `/roles` as a static shell with a dynamic hole.
       `company-${slug}`) with its Published Jobs.
 - [x] Wire `/roles` (default view cached one level up — ADR-0003; filtered view
       dynamic), pagination controls, empty state.
-- [ ] `/roles/[slug]`: detail, `generateMetadata` (title, description, OG),
+- [x] `/roles/[slug]`: detail, `generateMetadata` (title, description, OG),
       `generateStaticParams`, closed state banner, soft-404 UI (ADR-0004),
       JSON-LD `JobPosting` (with `validThrough` for Closed).
-- [ ] `/companies/[slug]`: company profile + its open Jobs.
+- [x] `/companies/[slug]`: company profile + its open Jobs.
 
 **Done when:** the public board shows seeded Jobs from Postgres with working
 search/filter/pagination; detail and company pages are cached.
@@ -271,6 +271,33 @@ search/filter/pagination; detail and company pages are cached.
   render as inert spans, not dead links. **Empty states:** "No roles match
   your search" (filters active → Clear filters) vs "No open roles right now"
   (empty Board → Post a role).
+- **Detail pages:** `/roles/[slug]` and `/companies/[slug]` prebuild every
+  Public Job / company via `generateStaticParams` (○ static, served from the
+  prerender cache) and read `params` inside `<Suspense>` with a
+  layout-matching skeleton — required by instant-navigation validation; for
+  prebuilt slugs the content is still in the static HTML. `generateMetadata`
+  (title, description, canonical, Open Graph) shares the page's cached read.
+  Slugs failing `isPlausibleSlug()` never reach the cached read.
+- **ADR-0004 confirmed in practice:** unknown slugs, Drafts and malformed
+  slugs render the segment's `not-found.tsx` inside the site layout with
+  **200 + `noindex`**. (Briefly, with `params` awaited outside `<Suspense>`,
+  they returned a real 404 — but dev validation rejects that structure, so
+  the ADR's reasoning holds.)
+- **Empty-DB guard:** `generateStaticParams` falls back to a placeholder slug
+  (`no-roles-yet` / `no-companies-yet`) — under `cacheComponents` an empty
+  array fails the build, which would break the first M6 deploy.
+- **Job page:** closed banner (with closing date + link to the company's open
+  roles), facts card, company card, description as plain text
+  (`whitespace-pre-line`, no user HTML). JSON-LD `JobPosting` (employment
+  type mapped, `TELECOMMUTE` for remote, USD `baseSalary`, `validThrough`
+  for Closed) with `<` escaped per the Next.js JSON-LD guide. Apply and the
+  owner "Edit" affordance are left as a TODO slot for M5 / M4 — dynamic
+  leaves, never in the cached DTO.
+- **Seed:** sets `updated_at` explicitly so Closed Jobs have a realistic
+  closing date (posted N days ago, closed 30 days later).
+- No `metadataBase` yet: canonical / `og:url` are relative, which Next
+  resolves against the deployment URL on Vercel. Revisit in M6 if a custom
+  domain is used.
 
 ---
 
