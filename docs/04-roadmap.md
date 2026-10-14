@@ -391,13 +391,13 @@ the role-aware `/dashboard`; `/admin` bounces non-admins.
 - [x] `/dashboard/company`: employer creates/edits their Company
       (`upsertMyCompany`; slug from name, unique). Employers without a company
       are routed here before posting.
-- [ ] `lib/validations/job.ts`: `jobSchema` (title, description, location,
+- [x] `lib/validations/job.ts`: `jobSchema` (title, description, location,
       type, workMode, salaryMin ≤ salaryMax refinement); empty strings → undefined.
-- [ ] `data/jobs.ts` owner functions (all open with `requireRole("employer")`
+- [x] `data/jobs.ts` owner functions (all open with `requireRole("employer")`
       and scope by `company.ownerId = session.userId`):
       `listMyJobs`, `getMyJobById`, `createJobForMyCompany`,
       `updateMyJob`, `setMyJobStatus`, `deleteMyJob`.
-- [ ] `actions/jobs.ts`: `createJob`, `updateJob`, `publishJob`, `closeJob`,
+- [x] `actions/jobs.ts`: `createJob`, `updateJob`, `publishJob`, `closeJob`,
       `deleteJob` — verify → authorize → validate → write → `updateTag(\`job-${slug}\`)`    /`updateTag(\`company-${slug}\`)` + refresh the board.
 - [ ] `components/forms/job-form.tsx` shared by new/edit.
 - [ ] `/dashboard/roles` (my Jobs table with status badges + actions),
@@ -405,7 +405,7 @@ the role-aware `/dashboard`; `/admin` bounces non-admins.
       `notFound()` if not theirs).
 - [ ] Owner-only "Edit this Job" affordance on `/roles/[slug]` as a separate
       dynamic component behind `<Suspense>` (ADR-0003 — never in the cached DTO).
-- [ ] Slugs: `slugify(title)` + short random suffix; immutable after publish.
+- [x] Slugs: `slugify(title)` + short random suffix; immutable after publish.
 
 **Done when:** an employer creates a company, posts a draft, publishes it, and
 sees it live on the board and detail page immediately (read-your-writes); closing
@@ -431,6 +431,26 @@ NOTHING` + retry, no read-then-write race), and it **never changes** —
   the actions both use them.
 - Shared zod helpers `lib/validations/fields.ts` (`optionalText`,
   `optionalHttpUrl`: blank → `undefined`). `makeSlug()` in `lib/utils.ts`.
+- **`jobSchema`** (renamed from the stub's `createJobSchema`): title 3–120,
+  description 20–10,000, optional location ≤ 120, enums, optional whole-number
+  salaries 0–10M (annual USD; "120,000" accepted), `salaryMin ≤ salaryMax`
+  error on `salaryMax`.
+- **Owner Job DAL:** every function reaches a Job through
+  `company.ownerId = session.userId`; someone else's id is indistinguishable
+  from a missing one. `MyJobDTO` (any status, with `id` and editable fields).
+  Writes return the public tags they affect (`job-${slug}`,
+  `company-${slug}`, `board`) and the action calls `updateTag` on each —
+  Draft edits/deletes touch none. Lifecycle is **Draft → Published →
+  Closed** only (no reopen, no unpublish — not in the brief); the expected
+  current status is in the `UPDATE … WHERE`, so double submits are no-ops.
+  `publishedAt` is stamped on publish.
+- **Slugs:** `slugify(title)` + 6-char random suffix (unique index + retry).
+  The slug follows title edits only while `publishedAt` is null (never
+  public); after the first publish it is frozen.
+- **Row actions** (`publishJob` / `closeJob` / `deleteJob`) are plain
+  `(jobId) => void` form actions bound to the id, ending in `refresh()` so the
+  dashboard list re-renders; failures are silent no-ops (the list shows the
+  real state). `createJob` without a company redirects to the company page.
 
 ---
 

@@ -101,3 +101,40 @@ export function toJobDetailDTO(row: JobWithCompany): JobDetailDTO {
     company: toCompanyDTO(row.company),
   }
 }
+
+// The owning Employer's view of one of their Jobs: any status, plus the id
+// (for dashboard URLs) and every editable field. Only ever built by OWNER
+// reads in data/jobs.ts, which scope by company.ownerId.
+export type MyJobDTO = {
+  id: string
+  slug: string
+  title: string
+  description: string
+  location: string | null
+  workMode: JobRow["workMode"]
+  type: JobRow["type"]
+  salaryMin: number | null
+  salaryMax: number | null
+  status: JobRow["status"]
+  isPublic: boolean // Published or Closed — reachable at /roles/[slug]
+  publishedAt: Date | null
+  updatedAt: Date
+}
+
+export function toMyJobDTO(row: JobRow): MyJobDTO {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    description: row.description,
+    location: row.location,
+    workMode: row.workMode,
+    type: row.type,
+    salaryMin: row.salaryMin,
+    salaryMax: row.salaryMax,
+    status: row.status,
+    isPublic: row.status !== "draft",
+    publishedAt: row.publishedAt,
+    updatedAt: row.updatedAt,
+  }
+}
