@@ -494,7 +494,7 @@ NOTHING` + retry, no read-then-write race), and it **never changes** —
       (grouped by Job, status select).
 - [x] `/dashboard` home: role-aware stats (counts) and quick links.
 - [x] `/dashboard/settings`: update name; change password (verify current).
-- [ ] `/admin` (`requireRole("admin")`): list all Jobs (close/delete any), list
+- [x] `/admin` (`requireRole("admin")`): list all Jobs (close/delete any), list
       users (change role). Each admin action re-checks the role.
 
 **Done when:** the full two-sided flow works with ownership enforced: candidate
@@ -558,6 +558,23 @@ applies → employer sees it and changes status → candidate sees the new statu
   Server Action imports, `next dev` served a stale copy (`… is not a
 function` / `undefined`). A dev restart fixed it both times; `next build`
   was never affected. Not a code issue — noting it in case it bites again.
+- **Admin (`data/admin.ts`):** every function opens with
+  `requireFreshAdmin()` = `requireRole("admin")` **plus a DB re-read of the
+  Role** — the JWT keeps a Role until next sign-in, and for site-wide powers
+  that matters (§5). Verified: an Admin demoted mid-session is bounced from
+  `/admin` on the next request with the same cookie. Other Role changes still
+  apply at the target user's next sign-in (the page says so).
+- **Admin Jobs:** every Job, any status, with company and application count;
+  Close (Published only) and Delete (any), both with `confirm()` and the same
+  public cache tags as the Employer's writes (`publicJobTags` now exported
+  from `data/jobs.ts`). **Admin users:** change any Role except your own
+  (refused in the DAL, not just hidden — verified by posting the Admin's own
+  id). Both lists capped at 200 rows, newest first; pagination if it ever
+  matters.
+- **Wording:** the console says "Jobs", not "roles", because user Roles are
+  on the same page (CONTEXT.md); the rest of the UI keeps "roles" for Jobs.
+- `RowActionButton` promoted from `dashboard/roles/_components` to
+  `src/components/` (now used by My roles and the admin console).
 
 ---
 

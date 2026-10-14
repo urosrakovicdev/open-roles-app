@@ -155,7 +155,7 @@ export type OwnerWriteResult<Extra = object> =
   | { ok: false; reason: "not_found" | "no_company" | "invalid_status" }
 
 // Tags on a Public Job's data: its page, its company page, the Board.
-function publicTags(jobSlug: string, companySlug: string) {
+export function publicJobTags(jobSlug: string, companySlug: string) {
   return [jobTag(jobSlug), companyTag(companySlug), BOARD_TAG]
 }
 
@@ -273,7 +273,7 @@ export async function updateMyJob(
   // A Draft edit touches nothing public.
   return {
     ok: true,
-    tags: job.status === "draft" ? [] : publicTags(job.slug, company.slug),
+    tags: job.status === "draft" ? [] : publicJobTags(job.slug, company.slug),
   }
 }
 
@@ -314,7 +314,7 @@ export async function setMyJobStatus(
   if (!updated) return { ok: false, reason: "invalid_status" }
 
   // Publishing also clears any cached "not found" for this slug.
-  return { ok: true, tags: publicTags(job.slug, company.slug) }
+  return { ok: true, tags: publicJobTags(job.slug, company.slug) }
 }
 
 // OWNER: delete one of my Jobs (its Applications go with it — FK cascade).
@@ -330,6 +330,6 @@ export async function deleteMyJob(jobId: string): Promise<OwnerWriteResult> {
 
   return {
     ok: true,
-    tags: job.status === "draft" ? [] : publicTags(job.slug, company.slug),
+    tags: job.status === "draft" ? [] : publicJobTags(job.slug, company.slug),
   }
 }

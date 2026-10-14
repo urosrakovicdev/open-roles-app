@@ -17,7 +17,7 @@ import { getMyCompany } from "@/data/companies"
 import type { MyJobDTO } from "@/data/dto"
 import { listMyJobs } from "@/data/jobs"
 import { employmentTypeLabel, workModeLabel } from "@/lib/job-labels"
-import { RowActionButton } from "./_components/row-action-button"
+import { RowActionButton } from "@/components/row-action-button"
 
 export const metadata: Metadata = { title: "My roles" }
 
