@@ -156,3 +156,22 @@ export type MyApplicationDTO = {
     isAcceptingApplications: boolean
   }
 }
+
+// An Application as the Employer who owns the Job sees it. Includes the
+// Candidate's name and email — applying shares them with that Employer, and
+// with no one else. Built only by listApplicationsForMyJobs, which scopes by
+// company.ownerId = session.userId.
+export type ReceivedApplicationDTO = {
+  id: string
+  status: ApplicationStatus
+  appliedAt: Date
+  coverLetter: string | null
+  resumeUrl: string | null
+  candidate: { name: string | null; email: string }
+}
+
+// The Employer's Applications, grouped by Job.
+export type JobApplicationsDTO = {
+  job: { id: string; slug: string; title: string; status: JobRow["status"] }
+  applications: ReceivedApplicationDTO[]
+}

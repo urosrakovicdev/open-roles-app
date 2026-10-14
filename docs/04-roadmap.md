@@ -482,15 +482,15 @@ NOTHING` + retry, no read-then-write race), and it **never changes** —
 ## M5 · Applications & admin
 
 - [x] `lib/validations/application.ts` (coverLetter ≤ 5000; resumeUrl optional URL).
-- [ ] `data/applications.ts`: `applyToJob` (candidate only, Job must be
+- [x] `data/applications.ts`: `applyToJob` (candidate only, Job must be
       Published, unique per pair → friendly "already applied"),
       `listMyApplications`, `listApplicationsForMyJobs`,
       `setApplicationStatus` (employer owns the Job), `hasApplied(jobSlug)`.
-- [ ] `actions/applications.ts`: thin wrappers; candidateId from session.
+- [x] `actions/applications.ts`: thin wrappers; candidateId from session.
 - [x] Apply UI on `/roles/[slug]`: dynamic leaf behind `<Suspense>` — signed
       out → "Sign in to apply"; candidate → form or "Applied ✓"; employer/admin
       → hidden; Closed → disabled.
-- [ ] `/dashboard/applications`: candidate view (status per Job) / employer view
+- [x] `/dashboard/applications`: candidate view (status per Job) / employer view
       (grouped by Job, status select).
 - [ ] `/dashboard` home: role-aware stats (counts) and quick links.
 - [ ] `/dashboard/settings`: update name; change password (verify current).
@@ -524,6 +524,22 @@ applies → employer sees it and changes status → candidate sees the new statu
   Admins are redirected to `/dashboard` (the nav never linked it for them).
   Candidate view: newest first, status badge, "Role closed" when the Job has
   closed since.
+- **Employer triage:** `listApplicationsForMyJobs` groups by Job (Jobs
+  ordered by their newest Application; Jobs with none are omitted).
+  `ReceivedApplicationDTO` includes the Candidate's **name and email** —
+  applying shares them with that Job's Employer only (no contact info, no
+  triage). `setApplicationStatus` puts ownership in the `UPDATE … WHERE`
+  (`job_id IN (my company's Jobs)`); any status may move to any other.
+  Verified: an Employer submitting their own status form with another
+  company's Application id changes nothing.
+- **Status control:** `StatusSelect` client leaf submits on change
+  (`requestSubmit`, "Saving…" via `useFormStatus`); a `<noscript>` Save
+  button covers no-JS. The action is a plain bound form action ending in
+  `refresh()`. Cover letters render as plain text; résumé links open with
+  `rel="noopener noreferrer nofollow"` (already `http(s)`-only by zod).
+- **Note:** bound action args (`fn.bind(null, id)`) reach the client as
+  plain hidden fields in no-JS forms — they are untrusted input, which is why
+  every bound id is re-scoped in the DAL.
 
 ---
 

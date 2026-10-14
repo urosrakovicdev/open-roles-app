@@ -9,9 +9,13 @@
 
 import { refresh } from "next/cache"
 import { z } from "zod"
-import { applyToJob } from "@/data/applications"
+import { applyToJob, setApplicationStatus } from "@/data/applications"
 import { requireRole } from "@/data/dal"
-import { applySchema } from "@/lib/validations/application"
+import {
+  applicationIdSchema,
+  applicationStatusSchema,
+  applySchema,
+} from "@/lib/validations/application"
 
 export type ApplyFormState = {
   ok?: boolean
@@ -57,4 +61,21 @@ export async function applyAction(
   }
   refresh()
   return { ok: true }
+}
+
+// An Employer moves an Application to a new status. A plain form action bound
+// to the Application id (untrusted, like any field): the DAL only updates it
+// if the Job belongs to the Employer's company. Invalid input or someone
+// else's id is a no-op; refresh() re-renders the real state either way.
+export async function setApplicationStatusAction(
+  applicationId: string,
+  formData: FormData,
+) {
+  await requireRole("employer")
+  const id = applicationIdSchema.safeParse(applicationId)
+  const status = applicationStatusSchema.safeParse(formData.get("status"))
+  if (id.success && status.success) {
+    await setApplicationStatus(id.data, status.data)
+  }
+  refresh()
 }

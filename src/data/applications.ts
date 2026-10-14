@@ -6,12 +6,16 @@
 //       https://orm.drizzle.team/docs/insert#on-conflict-do-nothing
 
 import "server-only"
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, inArray } from "drizzle-orm"
 import { db } from "@/db/drizzle"
-import { applications, companies, jobs } from "@/db/schema"
+import { applications, companies, jobs, users } from "@/db/schema"
 import type { ApplyInput } from "@/lib/validations/application"
-import { getOptionalSession, requireRole, verifySession } from "./dal"
-import type { MyApplicationDTO } from "./dto"
+import { getOptionalSession, requireRole } from "./dal"
+import type {
+  ApplicationStatus,
+  JobApplicationsDTO,
+  MyApplicationDTO,
+} from "./dto"
 
 // ── CANDIDATE ──────────────────────────────────────────────────────────────
 
@@ -98,10 +102,84 @@ export async function listMyApplications(): Promise<MyApplicationDTO[]> {
 
 // ── EMPLOYER ───────────────────────────────────────────────────────────────
 
-// Employer view: applications to MY company's roles.
-export async function listApplicationsForMyJobs() {
-  const { userId } = await verifySession()
-  // TODO (M5, chunk 2): join job→company, where company.ownerId === userId.
-  void userId
-  return []
+// EMPLOYER: Applications to my company's Jobs, grouped by Job. Jobs are
+// ordered by their newest Application; Jobs without any are left out.
+export async function listApplicationsForMyJobs(): Promise<
+  JobApplicationsDTO[]
+> {
+  const { userId } = await requireRole("employer")
+  const rows = await db
+    .select({
+      id: applications.id,
+      status: applications.status,
+      appliedAt: applications.createdAt,
+      coverLetter: applications.coverLetter,
+      resumeUrl: applications.resumeUrl,
+      candidateName: users.name,
+      candidateEmail: users.email,
+      jobId: jobs.id,
+      jobSlug: jobs.slug,
+      jobTitle: jobs.title,
+      jobStatus: jobs.status,
+    })
+    .from(applications)
+    .innerJoin(jobs, eq(applications.jobId, jobs.id))
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .innerJoin(users, eq(applications.candidateId, users.id))
+    .where(eq(companies.ownerId, userId))
+    .orderBy(desc(applications.createdAt), desc(applications.id))
+
+  // Rows arrive newest first, so a Map keeps Jobs in "latest Application" order.
+  const groups = new Map<string, JobApplicationsDTO>()
+  for (const row of rows) {
+    let group = groups.get(row.jobId)
+    if (!group) {
+      group = {
+        job: {
+          id: row.jobId,
+          slug: row.jobSlug,
+          title: row.jobTitle,
+          status: row.jobStatus,
+        },
+        applications: [],
+      }
+      groups.set(row.jobId, group)
+    }
+    group.applications.push({
+      id: row.id,
+      status: row.status,
+      appliedAt: row.appliedAt,
+      coverLetter: row.coverLetter,
+      resumeUrl: row.resumeUrl,
+      candidate: { name: row.candidateName, email: row.candidateEmail },
+    })
+  }
+  return [...groups.values()]
+}
+
+// EMPLOYER: move an Application to a new status — only if it was made to a
+// Job my company owns. The ownership check is part of the UPDATE itself, so
+// someone else's Application id simply matches nothing.
+export async function setApplicationStatus(
+  applicationId: string,
+  status: ApplicationStatus,
+): Promise<{ ok: boolean }> {
+  const { userId } = await requireRole("employer")
+  const myJobIds = db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .where(eq(companies.ownerId, userId))
+
+  const [updated] = await db
+    .update(applications)
+    .set({ status })
+    .where(
+      and(
+        eq(applications.id, applicationId),
+        inArray(applications.jobId, myJobIds),
+      ),
+    )
+    .returning({ id: applications.id })
+  return { ok: Boolean(updated) }
 }
