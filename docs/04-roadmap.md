@@ -94,6 +94,7 @@ No secret values here. Everything below was verified in the setup session.
   - `verifySession()` now calls `await connection()` before `auth()`.
 
   Documented in CLAUDE.md › Known Next 16 facts.
+
 - **Pulled forward from M3 (types only):** `src/types/next-auth.d.ts` declares
   `User.role` so the scaffold `dal.ts` typechecks. M3 still owns the
   jwt/session callbacks that populate it, and the `JWT` augmentation.
@@ -128,7 +129,6 @@ No secret values here. Everything below was verified in the setup session.
 
 **Done when:** a fast, server-rendered public skin; build output shows `/` as
 static and `/roles` as a static shell with a dynamic hole.
-
 
 **M1 notes:**
 
@@ -193,7 +193,7 @@ static and `/roles` as a static shell with a dynamic hole.
     `ILIKE` on title/company/location, page size 10, returns
     `{ items, page, totalPages }`. **Uncached** (unbounded args — ADR-0003).
   - `getPublicJobBySlug(slug)` — **Published or Closed** (ADR-0005), `'use cache'`
-    + `cacheTag(\`job-${slug}\`)` + `cacheLife`, returns DTO or `null`.
+    - `cacheTag(\`job-${slug}\`)`+`cacheLife`, returns DTO or `null`.
   - `listPublicJobSlugs()` for `generateStaticParams`.
 - [x] `data/companies.ts`: `getPublicCompanyBySlug(slug)` (cached, tag
       `company-${slug}`) with its Published Jobs.
@@ -206,7 +206,6 @@ static and `/roles` as a static shell with a dynamic hole.
 
 **Done when:** the public board shows seeded Jobs from Postgres with working
 search/filter/pagination; detail and company pages are cached.
-
 
 **M2 notes:**
 
@@ -330,7 +329,6 @@ search/filter/pagination; detail and company pages are cached.
 **Done when:** you can sign up as candidate or employer, log in/out, and reach
 the role-aware `/dashboard`; `/admin` bounces non-admins.
 
-
 **M3 notes:**
 
 - **Chunks:** `m3-1-auth-core` → `m3-2-auth-forms` → `m3-3-session-ui`.
@@ -390,7 +388,7 @@ the role-aware `/dashboard`; `/admin` bounces non-admins.
 
 ## M4 · The write path: companies & Jobs
 
-- [ ] `/dashboard/company`: employer creates/edits their Company
+- [x] `/dashboard/company`: employer creates/edits their Company
       (`upsertMyCompany`; slug from name, unique). Employers without a company
       are routed here before posting.
 - [ ] `lib/validations/job.ts`: `jobSchema` (title, description, location,
@@ -400,8 +398,7 @@ the role-aware `/dashboard`; `/admin` bounces non-admins.
       `listMyJobs`, `getMyJobById`, `createJobForMyCompany`,
       `updateMyJob`, `setMyJobStatus`, `deleteMyJob`.
 - [ ] `actions/jobs.ts`: `createJob`, `updateJob`, `publishJob`, `closeJob`,
-      `deleteJob` — verify → authorize → validate → write → `updateTag(\`job-${slug}\`)`
-      / `updateTag(\`company-${slug}\`)` + refresh the board.
+      `deleteJob` — verify → authorize → validate → write → `updateTag(\`job-${slug}\`)`    /`updateTag(\`company-${slug}\`)` + refresh the board.
 - [ ] `components/forms/job-form.tsx` shared by new/edit.
 - [ ] `/dashboard/roles` (my Jobs table with status badges + actions),
       `/dashboard/roles/new`, `/dashboard/roles/[id]/edit` (owner-scoped;
@@ -414,8 +411,26 @@ the role-aware `/dashboard`; `/admin` bounces non-admins.
 sees it live on the board and detail page immediately (read-your-writes); closing
 it removes it from the board but keeps the detail page with the closed banner.
 
+**M4 notes:**
 
-**M4 notes:** _(decisions, deviations, out-of-scope findings)_
+- **Chunks:** `m4-1-company` → `m4-2-job-writes` → `m4-3-job-ui` →
+  `m4-4-owner-edit-link`.
+- **Company:** `getMyCompany` / `upsertMyCompany` in `data/companies.ts`
+  (`requireRole("employer")`, owner from the session). The schema allows
+  several companies per owner; the UI manages the **oldest** one. Slug =
+  `slugify(name)` at creation, random suffix only if taken (`ON CONFLICT DO
+NOTHING` + retry, no read-then-write race), and it **never changes** —
+  renaming keeps the public URL. Blank optional fields clear the column.
+  Website / logo URLs must be `http(s)` (they end up in public `href`s).
+  `saveCompanyAction` → `updateTag(company-${slug})` + `updateTag("board")`
+  (Board cards show the company name). Employers without a company are sent
+  to `/dashboard/company?from=new-role`; a hidden `next=new-role` (allowlist,
+  not a URL) continues to "Post a role" after creating.
+- **Cache tag vocabulary** now lives in the DAL: `BOARD_TAG` / `jobTag()` in
+  `data/jobs.ts`, `companyTag()` in `data/companies.ts`; the cached reads and
+  the actions both use them.
+- Shared zod helpers `lib/validations/fields.ts` (`optionalText`,
+  `optionalHttpUrl`: blank → `undefined`). `makeSlug()` in `lib/utils.ts`.
 
 ---
 
@@ -440,7 +455,6 @@ it removes it from the board but keeps the detail page with the closed banner.
 **Done when:** the full two-sided flow works with ownership enforced: candidate
 applies → employer sees it and changes status → candidate sees the new status.
 
-
 **M5 notes:** _(decisions, deviations, out-of-scope findings)_
 
 ---
@@ -461,7 +475,6 @@ applies → employer sees it and changes status → candidate sees the new statu
       if self-hosted.
 
 **Done when:** the app is deployed and the two-sided flow works in production.
-
 
 **M6 notes:** _(decisions, deviations, out-of-scope findings)_
 

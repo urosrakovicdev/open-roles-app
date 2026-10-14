@@ -17,6 +17,7 @@ import { and, count, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm"
 import { cacheLife, cacheTag } from "next/cache"
 import { db } from "@/db/drizzle"
 import { companies, jobs } from "@/db/schema"
+import { companyTag } from "./companies"
 import { verifySession } from "./dal"
 import {
   toJobCardDTO,
@@ -26,6 +27,11 @@ import {
 } from "./dto"
 
 export const JOBS_PAGE_SIZE = 10
+
+// Cache tags for public Job data. `board` is the cached default Board view
+// (roles/page.tsx); `job-${slug}` is one Job's detail read.
+export const BOARD_TAG = "board"
+export const jobTag = (slug: string) => `job-${slug}`
 
 // A Public Job is reachable at /roles/[slug]: Published OR Closed (ADR-0005).
 // Deliberately NOT the Board's predicate — see listPublishedJobs.
@@ -111,7 +117,7 @@ export async function getPublicJobBySlug(
 ): Promise<JobDetailDTO | null> {
   "use cache"
   cacheLife("hours")
-  cacheTag(`job-${slug}`)
+  cacheTag(jobTag(slug))
 
   const row = await db.query.jobs.findFirst({
     where: and(eq(jobs.slug, slug), inArray(jobs.status, PUBLIC_JOB_STATUSES)),
@@ -119,7 +125,7 @@ export async function getPublicJobBySlug(
   })
   if (!row) return null
   // The page shows company details too — refresh it when the company changes.
-  cacheTag(`company-${row.company.slug}`)
+  cacheTag(companyTag(row.company.slug))
   return toJobDetailDTO(row)
 }
 
