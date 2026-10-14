@@ -94,6 +94,7 @@ No secret values here. Everything below was verified in the setup session.
   - `verifySession()` now calls `await connection()` before `auth()`.
 
   Documented in CLAUDE.md › Known Next 16 facts.
+
 - **Pulled forward from M3 (types only):** `src/types/next-auth.d.ts` declares
   `User.role` so the scaffold `dal.ts` typechecks. M3 still owns the
   jwt/session callbacks that populate it, and the `JWT` augmentation.
@@ -128,7 +129,6 @@ No secret values here. Everything below was verified in the setup session.
 
 **Done when:** a fast, server-rendered public skin; build output shows `/` as
 static and `/roles` as a static shell with a dynamic hole.
-
 
 **M1 notes:**
 
@@ -193,7 +193,7 @@ static and `/roles` as a static shell with a dynamic hole.
     `ILIKE` on title/company/location, page size 10, returns
     `{ items, page, totalPages }`. **Uncached** (unbounded args — ADR-0003).
   - `getPublicJobBySlug(slug)` — **Published or Closed** (ADR-0005), `'use cache'`
-    + `cacheTag(\`job-${slug}\`)` + `cacheLife`, returns DTO or `null`.
+    - `cacheTag(\`job-${slug}\`)`+`cacheLife`, returns DTO or `null`.
   - `listPublicJobSlugs()` for `generateStaticParams`.
 - [x] `data/companies.ts`: `getPublicCompanyBySlug(slug)` (cached, tag
       `company-${slug}`) with its Published Jobs.
@@ -206,7 +206,6 @@ static and `/roles` as a static shell with a dynamic hole.
 
 **Done when:** the public board shows seeded Jobs from Postgres with working
 search/filter/pagination; detail and company pages are cached.
-
 
 **M2 notes:**
 
@@ -330,7 +329,6 @@ search/filter/pagination; detail and company pages are cached.
 **Done when:** you can sign up as candidate or employer, log in/out, and reach
 the role-aware `/dashboard`; `/admin` bounces non-admins.
 
-
 **M3 notes:**
 
 - **Chunks:** `m3-1-auth-core` → `m3-2-auth-forms` → `m3-3-session-ui`.
@@ -390,32 +388,94 @@ the role-aware `/dashboard`; `/admin` bounces non-admins.
 
 ## M4 · The write path: companies & Jobs
 
-- [ ] `/dashboard/company`: employer creates/edits their Company
+- [x] `/dashboard/company`: employer creates/edits their Company
       (`upsertMyCompany`; slug from name, unique). Employers without a company
       are routed here before posting.
-- [ ] `lib/validations/job.ts`: `jobSchema` (title, description, location,
+- [x] `lib/validations/job.ts`: `jobSchema` (title, description, location,
       type, workMode, salaryMin ≤ salaryMax refinement); empty strings → undefined.
-- [ ] `data/jobs.ts` owner functions (all open with `requireRole("employer")`
+- [x] `data/jobs.ts` owner functions (all open with `requireRole("employer")`
       and scope by `company.ownerId = session.userId`):
       `listMyJobs`, `getMyJobById`, `createJobForMyCompany`,
       `updateMyJob`, `setMyJobStatus`, `deleteMyJob`.
-- [ ] `actions/jobs.ts`: `createJob`, `updateJob`, `publishJob`, `closeJob`,
-      `deleteJob` — verify → authorize → validate → write → `updateTag(\`job-${slug}\`)`
-      / `updateTag(\`company-${slug}\`)` + refresh the board.
-- [ ] `components/forms/job-form.tsx` shared by new/edit.
-- [ ] `/dashboard/roles` (my Jobs table with status badges + actions),
+- [x] `actions/jobs.ts`: `createJob`, `updateJob`, `publishJob`, `closeJob`,
+      `deleteJob` — verify → authorize → validate → write → `updateTag(\`job-${slug}\`)`    /`updateTag(\`company-${slug}\`)` + refresh the board.
+- [x] `components/forms/job-form.tsx` shared by new/edit.
+- [x] `/dashboard/roles` (my Jobs table with status badges + actions),
       `/dashboard/roles/new`, `/dashboard/roles/[id]/edit` (owner-scoped;
       `notFound()` if not theirs).
-- [ ] Owner-only "Edit this Job" affordance on `/roles/[slug]` as a separate
+- [x] Owner-only "Edit this Job" affordance on `/roles/[slug]` as a separate
       dynamic component behind `<Suspense>` (ADR-0003 — never in the cached DTO).
-- [ ] Slugs: `slugify(title)` + short random suffix; immutable after publish.
+- [x] Slugs: `slugify(title)` + short random suffix; immutable after publish.
 
 **Done when:** an employer creates a company, posts a draft, publishes it, and
 sees it live on the board and detail page immediately (read-your-writes); closing
 it removes it from the board but keeps the detail page with the closed banner.
 
+**M4 notes:**
 
-**M4 notes:** _(decisions, deviations, out-of-scope findings)_
+- **Chunks:** `m4-1-company` → `m4-2-job-writes` → `m4-3-job-ui` →
+  `m4-4-owner-edit-link`.
+- **Company:** `getMyCompany` / `upsertMyCompany` in `data/companies.ts`
+  (`requireRole("employer")`, owner from the session). The schema allows
+  several companies per owner; the UI manages the **oldest** one. Slug =
+  `slugify(name)` at creation, random suffix only if taken (`ON CONFLICT DO
+NOTHING` + retry, no read-then-write race), and it **never changes** —
+  renaming keeps the public URL. Blank optional fields clear the column.
+  Website / logo URLs must be `http(s)` (they end up in public `href`s).
+  `saveCompanyAction` → `updateTag(company-${slug})` + `updateTag("board")`
+  (Board cards show the company name). Employers without a company are sent
+  to `/dashboard/company?from=new-role`; a hidden `next=new-role` (allowlist,
+  not a URL) continues to "Post a role" after creating.
+- **Cache tag vocabulary** now lives in the DAL: `BOARD_TAG` / `jobTag()` in
+  `data/jobs.ts`, `companyTag()` in `data/companies.ts`; the cached reads and
+  the actions both use them.
+- Shared zod helpers `lib/validations/fields.ts` (`optionalText`,
+  `optionalHttpUrl`: blank → `undefined`). `makeSlug()` in `lib/utils.ts`.
+- **`jobSchema`** (renamed from the stub's `createJobSchema`): title 3–120,
+  description 20–10,000, optional location ≤ 120, enums, optional whole-number
+  salaries 0–10M (annual USD; "120,000" accepted), `salaryMin ≤ salaryMax`
+  error on `salaryMax`.
+- **Owner Job DAL:** every function reaches a Job through
+  `company.ownerId = session.userId`; someone else's id is indistinguishable
+  from a missing one. `MyJobDTO` (any status, with `id` and editable fields).
+  Writes return the public tags they affect (`job-${slug}`,
+  `company-${slug}`, `board`) and the action calls `updateTag` on each —
+  Draft edits/deletes touch none. Lifecycle is **Draft → Published →
+  Closed** only (no reopen, no unpublish — not in the brief); the expected
+  current status is in the `UPDATE … WHERE`, so double submits are no-ops.
+  `publishedAt` is stamped on publish.
+- **Slugs:** `slugify(title)` + 6-char random suffix (unique index + retry).
+  The slug follows title edits only while `publishedAt` is null (never
+  public); after the first publish it is frozen.
+- **Row actions** (`publishJob` / `closeJob` / `deleteJob`) are plain
+  `(jobId) => void` form actions bound to the id, ending in `refresh()` so the
+  dashboard list re-renders; failures are silent no-ops (the list shows the
+  real state). `createJob` without a company redirects to the company page.
+- **Dashboard UI:** `JobForm` takes the action as a prop (`createJob`, or
+  `updateJob.bind(null, id)`) and echoes fields on error. New Jobs are
+  always saved as a Draft ("Save draft"); publishing is a row action on My
+  roles. My roles is a card list rather than a `<table>` (fits 360px):
+  status badge, View (Public Jobs), Edit, Publish (Draft) / Close
+  (Published), Delete. Close and Delete ask `confirm()` in a small client
+  `RowActionButton` (also shows pending); without JS they submit directly.
+  `/dashboard/roles/new` redirects employers without a company.
+  `/dashboard/roles/[id]/edit` → `notFound()` for another employer's Job.
+- **Nav:** Employer = Overview, My roles, Company, Applications, Settings.
+  "Post a role" left the nav (it highlighted together with My roles); it's
+  the primary button on My roles and a dashboard quick link.
+- **Owner link on `/roles/[slug]`:** `OwnerJobLink` behind its own
+  `<Suspense fallback={null}>` inside the facts card, fed by
+  `getMyJobIdBySlug(slug)` — uncached, uses `getOptionalSession()` (no
+  redirect; anyone may view the page), returns an id only to the owning
+  Employer. Visible copy says "Edit this role" (URL-facing wording); the
+  cached `JobDetailDTO` is unchanged.
+- **Verified against `next start`** (not just dev): publish → Board, company
+  page and detail page show the Job on the next request; close → gone from
+  Board and company page, detail shows the closed banner; editing a Job whose
+  page was prerendered at build time updates it. Dev DB re-seeded afterwards.
+- **For M6:** `next start` locally fails every auth call with Auth.js
+  `UntrustedHost` unless `AUTH_TRUST_HOST=true` is set (Vercel sets it
+  automatically). Used inline for the check above; `.env.local` untouched.
 
 ---
 
@@ -440,7 +500,6 @@ it removes it from the board but keeps the detail page with the closed banner.
 **Done when:** the full two-sided flow works with ownership enforced: candidate
 applies → employer sees it and changes status → candidate sees the new status.
 
-
 **M5 notes:** _(decisions, deviations, out-of-scope findings)_
 
 ---
@@ -461,7 +520,6 @@ applies → employer sees it and changes status → candidate sees the new statu
       if self-hosted.
 
 **Done when:** the app is deployed and the two-sided flow works in production.
-
 
 **M6 notes:** _(decisions, deviations, out-of-scope findings)_
 

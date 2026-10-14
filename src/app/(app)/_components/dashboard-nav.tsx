@@ -3,7 +3,7 @@
 //
 // NOT a security boundary: hiding a link protects nothing. Every page it
 // links to calls verifySession() / requireRole() itself.
-// Only routes that exist are listed — M4 adds "My roles" and "Company".
+// Only routes that exist are listed.
 
 import { Badge } from "@/components/ui/badge"
 import { getOptionalSession } from "@/data/dal"
@@ -24,7 +24,9 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   ],
   employer: [
     OVERVIEW,
-    { href: "/dashboard/roles/new", label: "Post a role" },
+    // Not exact: stays current on /new and /[id]/edit.
+    { href: "/dashboard/roles", label: "My roles" },
+    { href: "/dashboard/company", label: "Company" },
     { href: "/dashboard/applications", label: "Applications" },
     SETTINGS,
   ],

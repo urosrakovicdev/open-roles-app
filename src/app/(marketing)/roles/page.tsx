@@ -11,7 +11,7 @@ import { cacheLife, cacheTag } from "next/cache"
 import { Suspense } from "react"
 import { RoleFilters } from "@/components/role-filters"
 import { Container } from "@/components/ui/container"
-import { listPublishedJobs } from "@/data/jobs"
+import { BOARD_TAG, listPublishedJobs } from "@/data/jobs"
 import { parseEmploymentType, parseWorkMode } from "@/lib/job-labels"
 import { BoardResults } from "./_components/board-results"
 import {
@@ -89,11 +89,11 @@ async function RoleResults({
 
 // ADR-0003 "cached one level up": the Board read stays uncached in the DAL;
 // this component calls it with NO arguments, so there is exactly one entry.
-// Tag `board` — publishing/closing a Job must updateTag("board") (M4).
+// Tag BOARD_TAG — Job and Company writes updateTag it (actions/).
 async function DefaultBoard() {
   "use cache"
   cacheLife("hours")
-  cacheTag("board")
+  cacheTag(BOARD_TAG)
   const result = await listPublishedJobs({})
   return <BoardResults {...result} filters={{}} />
 }

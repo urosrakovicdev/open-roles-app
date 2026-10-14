@@ -17,15 +17,25 @@ import { and, count, desc, eq, ilike, inArray, or, type SQL } from "drizzle-orm"
 import { cacheLife, cacheTag } from "next/cache"
 import { db } from "@/db/drizzle"
 import { companies, jobs } from "@/db/schema"
-import { verifySession } from "./dal"
+import { makeSlug } from "@/lib/utils"
+import type { JobInput } from "@/lib/validations/job"
+import { companyTag, findOwnedCompany } from "./companies"
+import { getOptionalSession, requireRole } from "./dal"
 import {
   toJobCardDTO,
   toJobDetailDTO,
+  toMyJobDTO,
   type JobCardDTO,
   type JobDetailDTO,
+  type MyJobDTO,
 } from "./dto"
 
 export const JOBS_PAGE_SIZE = 10
+
+// Cache tags for public Job data. `board` is the cached default Board view
+// (roles/page.tsx); `job-${slug}` is one Job's detail read.
+export const BOARD_TAG = "board"
+export const jobTag = (slug: string) => `job-${slug}`
 
 // A Public Job is reachable at /roles/[slug]: Published OR Closed (ADR-0005).
 // Deliberately NOT the Board's predicate — see listPublishedJobs.
@@ -111,7 +121,7 @@ export async function getPublicJobBySlug(
 ): Promise<JobDetailDTO | null> {
   "use cache"
   cacheLife("hours")
-  cacheTag(`job-${slug}`)
+  cacheTag(jobTag(slug))
 
   const row = await db.query.jobs.findFirst({
     where: and(eq(jobs.slug, slug), inArray(jobs.status, PUBLIC_JOB_STATUSES)),
@@ -119,7 +129,7 @@ export async function getPublicJobBySlug(
   })
   if (!row) return null
   // The page shows company details too — refresh it when the company changes.
-  cacheTag(`company-${row.company.slug}`)
+  cacheTag(companyTag(row.company.slug))
   return toJobDetailDTO(row)
 }
 
@@ -132,13 +142,194 @@ export async function listPublicJobSlugs(): Promise<string[]> {
   return rows.map((row) => row.slug)
 }
 
-// OWNER: Jobs belonging to the signed-in employer's company (drafts included).
-export async function listMyJobs() {
-  const { userId } = await verifySession() // M3: switch to requireRole("employer")
-  // TODO (M4): scope by company.ownerId === userId. Map to DTOs.
-  void userId
-  return []
+// ── OWNER reads & writes ───────────────────────────────────────────────────
+// Every function opens with requireRole("employer") and reaches a Job only
+// through the employer's company (company.ownerId = session.userId). An id
+// that isn't yours behaves exactly like one that doesn't exist.
+//
+// Writes return the public cache tags they affect; the Server Action calls
+// updateTag on them (updateTag is Server-Action-only).
+
+export type OwnerWriteResult<Extra = object> =
+  | ({ ok: true; tags: string[] } & Extra)
+  | { ok: false; reason: "not_found" | "no_company" | "invalid_status" }
+
+// Tags on a Public Job's data: its page, its company page, the Board.
+function publicTags(jobSlug: string, companySlug: string) {
+  return [jobTag(jobSlug), companyTag(companySlug), BOARD_TAG]
 }
 
-// TODO (M4): getMyJobById, createJobForMyCompany, updateMyJob, setMyJobStatus,
-// deleteMyJob — all owner-scoped. See docs/04-roadmap.md.
+// Internal: one of my Jobs + its company, or null.
+async function findMyJob(userId: string, jobId: string) {
+  const [row] = await db
+    .select({ job: jobs, company: companies })
+    .from(jobs)
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .where(and(eq(jobs.id, jobId), eq(companies.ownerId, userId)))
+    .limit(1)
+  return row ?? null
+}
+
+// A new Job slug: from the title, plus a random suffix so two "Frontend
+// Engineer" Jobs never collide.
+const newJobSlug = (title: string) =>
+  makeSlug(title, { fallback: "role", suffix: true })
+
+// Blank optional fields clear the column (undefined would skip it in UPDATE).
+function jobValues(input: JobInput) {
+  return {
+    title: input.title,
+    description: input.description,
+    location: input.location ?? null,
+    type: input.type,
+    workMode: input.workMode,
+    salaryMin: input.salaryMin ?? null,
+    salaryMax: input.salaryMax ?? null,
+  }
+}
+
+// OWNER: all my Jobs, any status, most recently changed first.
+export async function listMyJobs(): Promise<MyJobDTO[]> {
+  const { userId } = await requireRole("employer")
+  const rows = await db
+    .select({ job: jobs })
+    .from(jobs)
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .where(eq(companies.ownerId, userId))
+    .orderBy(desc(jobs.updatedAt), desc(jobs.id))
+  return rows.map(({ job }) => toMyJobDTO(job))
+}
+
+// OWNER: one of my Jobs by id, or null (not found OR not mine — same answer).
+export async function getMyJobById(jobId: string): Promise<MyJobDTO | null> {
+  const { userId } = await requireRole("employer")
+  const row = await findMyJob(userId, jobId)
+  return row ? toMyJobDTO(row.job) : null
+}
+
+// OWNER, on a public page: the id of the Public Job at `slug` if the visitor
+// is the Employer who owns it, else null. Never redirects (anyone may view
+// the page) and never cached — it's per-visitor. Feeds the "Edit this role"
+// link on /roles/[slug], kept out of the cached JobDetailDTO (ADR-0003).
+export async function getMyJobIdBySlug(slug: string): Promise<string | null> {
+  const session = await getOptionalSession()
+  if (session?.role !== "employer") return null
+  const [row] = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .where(and(eq(jobs.slug, slug), eq(companies.ownerId, session.userId)))
+    .limit(1)
+  return row?.id ?? null
+}
+
+// OWNER: a new Draft under my company. Drafts aren't public, so no tags.
+export async function createJobForMyCompany(
+  input: JobInput,
+): Promise<OwnerWriteResult<{ jobId: string }>> {
+  const { userId } = await requireRole("employer")
+  const company = await findOwnedCompany(userId)
+  if (!company) return { ok: false, reason: "no_company" }
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const [created] = await db
+      .insert(jobs)
+      .values({
+        ...jobValues(input),
+        slug: newJobSlug(input.title),
+        status: "draft",
+        companyId: company.id,
+      })
+      .onConflictDoNothing({ target: jobs.slug })
+      .returning({ id: jobs.id })
+    if (created) return { ok: true, tags: [], jobId: created.id }
+  }
+  throw new Error("createJobForMyCompany: could not find a free slug")
+}
+
+// OWNER: edit one of my Jobs, in any status. The slug follows the title only
+// while the Job has never been published; after that it's frozen so shared
+// links keep working.
+export async function updateMyJob(
+  jobId: string,
+  input: JobInput,
+): Promise<OwnerWriteResult> {
+  const { userId } = await requireRole("employer")
+  const found = await findMyJob(userId, jobId)
+  if (!found) return { ok: false, reason: "not_found" }
+  const { job, company } = found
+
+  const neverPublished = job.publishedAt === null
+  const slug =
+    neverPublished && input.title !== job.title
+      ? newJobSlug(input.title)
+      : job.slug
+
+  await db
+    .update(jobs)
+    .set({ ...jobValues(input), slug })
+    .where(and(eq(jobs.id, job.id), eq(jobs.companyId, company.id)))
+
+  // A Draft edit touches nothing public.
+  return {
+    ok: true,
+    tags: job.status === "draft" ? [] : publicTags(job.slug, company.slug),
+  }
+}
+
+// The only lifecycle moves (CONTEXT.md): Draft → Published → Closed.
+// Maps the target status to the status it must come from.
+const TRANSITIONS = {
+  published: "draft",
+  closed: "published",
+} as const
+
+// OWNER: publish a Draft or close a Published Job. The current status is part
+// of the WHERE, so a double submit or a stale button is a no-op, not a second
+// transition.
+export async function setMyJobStatus(
+  jobId: string,
+  status: keyof typeof TRANSITIONS,
+): Promise<OwnerWriteResult> {
+  const { userId } = await requireRole("employer")
+  const found = await findMyJob(userId, jobId)
+  if (!found) return { ok: false, reason: "not_found" }
+  const { job, company } = found
+
+  const [updated] = await db
+    .update(jobs)
+    .set({
+      status,
+      // Publishing stamps the date the Board sorts by.
+      ...(status === "published" && { publishedAt: new Date() }),
+    })
+    .where(
+      and(
+        eq(jobs.id, job.id),
+        eq(jobs.companyId, company.id),
+        eq(jobs.status, TRANSITIONS[status]),
+      ),
+    )
+    .returning({ id: jobs.id })
+  if (!updated) return { ok: false, reason: "invalid_status" }
+
+  // Publishing also clears any cached "not found" for this slug.
+  return { ok: true, tags: publicTags(job.slug, company.slug) }
+}
+
+// OWNER: delete one of my Jobs (its Applications go with it — FK cascade).
+export async function deleteMyJob(jobId: string): Promise<OwnerWriteResult> {
+  const { userId } = await requireRole("employer")
+  const found = await findMyJob(userId, jobId)
+  if (!found) return { ok: false, reason: "not_found" }
+  const { job, company } = found
+
+  await db
+    .delete(jobs)
+    .where(and(eq(jobs.id, job.id), eq(jobs.companyId, company.id)))
+
+  return {
+    ok: true,
+    tags: job.status === "draft" ? [] : publicTags(job.slug, company.slug),
+  }
+}
