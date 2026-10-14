@@ -29,6 +29,11 @@ const QUICK_LINKS: Record<UserRole, QuickLink[]> = {
   ],
   employer: [
     {
+      href: "/dashboard/roles",
+      title: "My roles",
+      description: "Publish, edit and close your roles.",
+    },
+    {
       href: "/dashboard/roles/new",
       title: "Post a role",
       description: "Draft a role, then publish it to the Board.",

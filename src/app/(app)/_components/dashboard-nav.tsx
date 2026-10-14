@@ -24,7 +24,8 @@ const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
   ],
   employer: [
     OVERVIEW,
-    { href: "/dashboard/roles/new", label: "Post a role" },
+    // Not exact: stays current on /new and /[id]/edit.
+    { href: "/dashboard/roles", label: "My roles" },
     { href: "/dashboard/company", label: "Company" },
     { href: "/dashboard/applications", label: "Applications" },
     SETTINGS,

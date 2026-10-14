@@ -399,8 +399,8 @@ the role-aware `/dashboard`; `/admin` bounces non-admins.
       `updateMyJob`, `setMyJobStatus`, `deleteMyJob`.
 - [x] `actions/jobs.ts`: `createJob`, `updateJob`, `publishJob`, `closeJob`,
       `deleteJob` — verify → authorize → validate → write → `updateTag(\`job-${slug}\`)`    /`updateTag(\`company-${slug}\`)` + refresh the board.
-- [ ] `components/forms/job-form.tsx` shared by new/edit.
-- [ ] `/dashboard/roles` (my Jobs table with status badges + actions),
+- [x] `components/forms/job-form.tsx` shared by new/edit.
+- [x] `/dashboard/roles` (my Jobs table with status badges + actions),
       `/dashboard/roles/new`, `/dashboard/roles/[id]/edit` (owner-scoped;
       `notFound()` if not theirs).
 - [ ] Owner-only "Edit this Job" affordance on `/roles/[slug]` as a separate
@@ -451,6 +451,18 @@ NOTHING` + retry, no read-then-write race), and it **never changes** —
   `(jobId) => void` form actions bound to the id, ending in `refresh()` so the
   dashboard list re-renders; failures are silent no-ops (the list shows the
   real state). `createJob` without a company redirects to the company page.
+- **Dashboard UI:** `JobForm` takes the action as a prop (`createJob`, or
+  `updateJob.bind(null, id)`) and echoes fields on error. New Jobs are
+  always saved as a Draft ("Save draft"); publishing is a row action on My
+  roles. My roles is a card list rather than a `<table>` (fits 360px):
+  status badge, View (Public Jobs), Edit, Publish (Draft) / Close
+  (Published), Delete. Close and Delete ask `confirm()` in a small client
+  `RowActionButton` (also shows pending); without JS they submit directly.
+  `/dashboard/roles/new` redirects employers without a company.
+  `/dashboard/roles/[id]/edit` → `notFound()` for another employer's Job.
+- **Nav:** Employer = Overview, My roles, Company, Applications, Settings.
+  "Post a role" left the nav (it highlighted together with My roles); it's
+  the primary button on My roles and a dashboard quick link.
 
 ---
 
