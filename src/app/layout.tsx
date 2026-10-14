@@ -7,6 +7,7 @@
 
 import type { Metadata } from "next"
 import { Geist } from "next/font/google"
+import { siteUrl } from "@/lib/env"
 import "./globals.css"
 
 // Self-hosted at build time by next/font; exposed as a CSS variable that the
@@ -15,6 +16,8 @@ import "./globals.css"
 const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" })
 
 export const metadata: Metadata = {
+  // Resolves every relative canonical / Open Graph URL to an absolute one.
+  metadataBase: new URL(siteUrl),
   title: { default: "OpenRoles", template: "%s · OpenRoles" },
   description: "A job board for finding and posting roles.",
 }

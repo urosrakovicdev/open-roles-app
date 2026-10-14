@@ -14,6 +14,11 @@ const schema = z.object({
   // Neon pooled connection string (host contains `-pooler`).
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   AUTH_SECRET: z.string().min(32),
+  // Public origin for absolute URLs (sitemap, robots, canonical / OG tags).
+  // Optional: on Vercel it falls back to the production domain below.
+  SITE_URL: z.url({ protocol: /^https?$/ }).optional(),
+  // Set by Vercel (a bare host, e.g. "open-roles.vercel.app"). Not a secret.
+  VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
 })
 
 const parsed = schema.safeParse(process.env)
@@ -29,3 +34,12 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data
+
+// The site's public origin, no trailing slash: SITE_URL if set, else the
+// Vercel production domain, else local dev.
+export const siteUrl = (
+  env.SITE_URL ??
+  (env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000")
+).replace(/\/+$/, "")

@@ -582,14 +582,14 @@ function` / `undefined`). A dev restart fixed it both times; `next build`
 
 - [x] Loading states (`loading.tsx` or Suspense fallbacks) on dashboard routes;
       accessible forms (labels, `aria-invalid`, focus on first error).
-- [ ] `app/sitemap.ts` (Public Jobs + companies) and `app/robots.ts`.
-- [ ] `instrumentation.ts`: minimal `onRequestError` logging.
-- [ ] `next.config.ts` production notes stay commented (self-hosting only).
+- [x] `app/sitemap.ts` (Public Jobs + companies) and `app/robots.ts`.
+- [x] `instrumentation.ts`: minimal `onRequestError` logging.
+- [x] `next.config.ts` production notes stay commented (self-hosting only).
 - [ ] **Human step:** create the Vercel project, set env vars
       (`DATABASE_URL`, `AUTH_SECRET`, `AUTH_TRUST_HOST` if needed), deploy;
       run migrations against the prod DB.
 - [ ] Production smoke check of the M5 flow on the deployed URL.
-- [ ] `docs/06-production.md`: env, migrations, caching on Vercel, and where
+- [x] `docs/06-production.md`: env, migrations, caching on Vercel, and where
       `deploymentId` / `cacheHandler` / `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` go
       if self-hosted.
 
@@ -609,6 +609,32 @@ function` / `undefined`). A dev restart fixed it both times; `next build`
   failed submit, focus moves to the first `[aria-invalid="true"]` field. Wired
   into all seven forms (login, signup, company, Job, apply, profile,
   password).
+- **Site URL:** `env.ts` gains optional `SITE_URL` and reads Vercel's
+  `VERCEL_PROJECT_PRODUCTION_URL`; `siteUrl` = `SITE_URL` → `https://` +
+  Vercel production domain → `http://localhost:3000`. Root layout sets
+  `metadataBase` from it, so canonical / `og:url` (relative since M2) are now
+  absolute.
+- **Sitemap / robots:** `/sitemap.xml` = landing, Board, every **Public Job**
+  (Closed included — ADR-0005) with `lastModified`, every company. Data from
+  `data/sitemap.ts` (`'use cache'`, tag **`board`** — every write that changes
+  a public URL already expires it, so no new tag). Verified under `next
+start`: publishing a Draft adds it to the sitemap on the next request.
+  `/robots.txt` disallows `/dashboard`, `/admin`, `/api/`, `/login`,
+  `/signup` and points at the sitemap. Both build as ○.
+- **`onRequestError`:** one JSON line per server error — message, digest,
+  method, path **without query string**, route, route type, render source;
+  **no headers** (session cookie). Verified with a malformed Server Action
+  body under `next start`. `register()` stays empty (no tracing provider).
+  `error.tsx`'s TODO resolved: server errors are already logged under the
+  digest it displays.
+- **Auth.js host trust** (M4 finding resolved): `@auth/core` sets `trustHost`
+  when `VERCEL` is set — no `AUTH_TRUST_HOST` on Vercel; documented as
+  required for `next start` elsewhere (`.env.example`, `06-production.md`).
+- **`docs/06-production.md`:** env table, migration procedure (inline
+  `DATABASE_URL` — dotenv doesn't override it), never seed/push prod, empty-DB
+  behaviour, how to make a first Admin, cache/tag table, logs, deploy +
+  smoke steps, self-hosting notes (`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`,
+  `deploymentId`, `cacheHandler`). Linked from CLAUDE.md's reading list.
 
 ---
 

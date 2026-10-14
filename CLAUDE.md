@@ -90,6 +90,8 @@ In this order, once per session (they're short):
 7. [`docs/adr/`](docs/adr) — accepted decisions. Read the ones touching your area.
 8. [`docs/research/auth-drizzle-schema.md`](docs/research/auth-drizzle-schema.md)
    — verified facts for the Auth.js + Drizzle schema (M2/M3).
+9. [`docs/06-production.md`](docs/06-production.md) — env, migrations,
+   caching and deploys in production (M6+).
 
 ## The architecture is non-negotiable
 
