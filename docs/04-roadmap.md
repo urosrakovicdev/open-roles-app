@@ -469,6 +469,13 @@ NOTHING` + retry, no read-then-write race), and it **never changes** —
   redirect; anyone may view the page), returns an id only to the owning
   Employer. Visible copy says "Edit this role" (URL-facing wording); the
   cached `JobDetailDTO` is unchanged.
+- **Verified against `next start`** (not just dev): publish → Board, company
+  page and detail page show the Job on the next request; close → gone from
+  Board and company page, detail shows the closed banner; editing a Job whose
+  page was prerendered at build time updates it. Dev DB re-seeded afterwards.
+- **For M6:** `next start` locally fails every auth call with Auth.js
+  `UntrustedHost` unless `AUTH_TRUST_HOST=true` is set (Vercel sets it
+  automatically). Used inline for the check above; `.env.local` untouched.
 
 ---
 
