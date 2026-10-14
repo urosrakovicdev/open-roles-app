@@ -635,6 +635,9 @@ start`: publishing a Draft adds it to the sitemap on the next request.
   behaviour, how to make a first Admin, cache/tag table, logs, deploy +
   smoke steps, self-hosting notes (`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`,
   `deploymentId`, `cacheHandler`). Linked from CLAUDE.md's reading list.
+- **Function region:** `vercel.json` sets `"regions": ["fra1"]` (next to Neon
+  eu-central-1) instead of the dashboard setting the setup notes planned —
+  version-controlled, applies from the first deploy.
 
 ---
 

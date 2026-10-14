@@ -1,7 +1,8 @@
 # 06 · Production
 
 How OpenRoles runs in production: Vercel (function region **`fra1`**,
-Frankfurt) in front of the Neon project `open-roles` (AWS **eu-central-1**,
+Frankfurt — pinned in [`vercel.json`](../vercel.json), so it's in code, not a
+dashboard setting) in front of the Neon project `open-roles` (AWS **eu-central-1**,
 Frankfurt), branch **`production`**. The `dev` Neon branch is for local work
 only — production never shares it.
 
