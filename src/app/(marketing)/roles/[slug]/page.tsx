@@ -19,6 +19,7 @@ import { Container } from "@/components/ui/container"
 import { getPublicJobBySlug, listPublicJobSlugs } from "@/data/jobs"
 import { employmentTypeLabel, workModeLabel } from "@/lib/job-labels"
 import { formatSalary, isPlausibleSlug } from "@/lib/utils"
+import { ApplyPanel, ApplyPanelFallback } from "./_components/apply-panel"
 import { JobPostingJsonLd } from "./_components/job-posting-json-ld"
 import { OwnerJobLink } from "./_components/owner-job-link"
 
@@ -198,11 +199,14 @@ async function RoleDetail({ params }: Props) {
                   </div>
                 )}
               </dl>
-              {/* TODO (M5): the Apply action — a dynamic leaf behind
-                  <Suspense> (signed out → "Sign in to apply"; candidate → form
-                  or "Applied ✓"; Closed → disabled). Never inside this cached
-                  data. */}
-              {/* Per-visitor, so its own hole; nothing shows while it loads. */}
+              {/* Per-visitor leaves, each its own hole — never inside the
+                  cached data (ADR-0003). */}
+              <Suspense fallback={<ApplyPanelFallback />}>
+                <ApplyPanel
+                  slug={job.slug}
+                  isAcceptingApplications={job.isAcceptingApplications}
+                />
+              </Suspense>
               <Suspense fallback={null}>
                 <OwnerJobLink slug={job.slug} />
               </Suspense>

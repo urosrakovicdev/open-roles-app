@@ -13,3 +13,8 @@ const ROLE_LABELS: Record<UserRole, string> = {
 export function roleLabel(role: UserRole): string {
   return ROLE_LABELS[role]
 }
+
+// For a Role <select> (the admin console).
+export const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as UserRole[]).map(
+  (value) => ({ value, label: ROLE_LABELS[value] }),
+)

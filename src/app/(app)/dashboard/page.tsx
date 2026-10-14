@@ -1,12 +1,13 @@
 // Dashboard home ("/dashboard"). Private, dynamic, per-user.
 // Entry point → calls verifySession() at the data layer, not in the layout.
-// M3: Role-aware quick links. M5 adds per-Role stats (counts).
+// Role-aware counts (getDashboardStats) above Role-aware quick links.
 // Docs: https://nextjs.org/docs/app/guides/authentication
 
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { verifySession } from "@/data/dal"
+import { getDashboardStats } from "@/data/stats"
 import type { UserRole } from "@/data/dto"
 import { roleLabel } from "@/lib/role-labels"
 
@@ -65,6 +66,7 @@ const QUICK_LINKS: Record<UserRole, QuickLink[]> = {
 
 export default async function DashboardPage() {
   const session = await verifySession() // the real check, at the entry point
+  const stats = await getDashboardStats()
 
   return (
     <main>
@@ -72,7 +74,24 @@ export default async function DashboardPage() {
       <p className="mt-1 text-fg-muted">
         You’re signed in as {aOrAn(roleLabel(session.role))}.
       </p>
-      <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+      <dl className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {stats.map((stat) => (
+          <Card key={stat.label} className="relative py-4">
+            <dt className="text-sm text-fg-muted">
+              <Link
+                href={stat.href}
+                className="after:absolute after:inset-0 after:rounded-card hover:text-fg"
+              >
+                {stat.label}
+              </Link>
+            </dt>
+            <dd className="mt-1 text-2xl font-semibold tabular-nums">
+              {stat.value}
+            </dd>
+          </Card>
+        ))}
+      </dl>
+      <ul className="mt-4 grid gap-4 sm:grid-cols-2">
         {QUICK_LINKS[session.role].map((link) => (
           <li key={link.href}>
             <Card className="relative h-full transition-colors hover:border-border-strong">

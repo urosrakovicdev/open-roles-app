@@ -9,7 +9,7 @@
 //
 // Docs: https://nextjs.org/docs/app/guides/data-security (Controlling return values)
 
-import type { companies, jobs, users } from "@/db/schema"
+import type { applications, companies, jobs, users } from "@/db/schema"
 
 type JobRow = typeof jobs.$inferSelect
 type CompanyRow = typeof companies.$inferSelect
@@ -137,4 +137,41 @@ export function toMyJobDTO(row: JobRow): MyJobDTO {
     publishedAt: row.publishedAt,
     updatedAt: row.updatedAt,
   }
+}
+
+// ── Application ────────────────────────────────────────────────────────────
+
+export type ApplicationStatus = (typeof applications.$inferSelect)["status"]
+
+// A Candidate's own Application, with just enough of the Job to link to it.
+// Built only by data/applications.ts, scoped by candidateId = session.userId.
+export type MyApplicationDTO = {
+  id: string
+  status: ApplicationStatus
+  appliedAt: Date
+  job: {
+    slug: string
+    title: string
+    companyName: string
+    isAcceptingApplications: boolean
+  }
+}
+
+// An Application as the Employer who owns the Job sees it. Includes the
+// Candidate's name and email — applying shares them with that Employer, and
+// with no one else. Built only by listApplicationsForMyJobs, which scopes by
+// company.ownerId = session.userId.
+export type ReceivedApplicationDTO = {
+  id: string
+  status: ApplicationStatus
+  appliedAt: Date
+  coverLetter: string | null
+  resumeUrl: string | null
+  candidate: { name: string | null; email: string }
+}
+
+// The Employer's Applications, grouped by Job.
+export type JobApplicationsDTO = {
+  job: { id: string; slug: string; title: string; status: JobRow["status"] }
+  applications: ReceivedApplicationDTO[]
 }

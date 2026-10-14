@@ -481,26 +481,100 @@ NOTHING` + retry, no read-then-write race), and it **never changes** —
 
 ## M5 · Applications & admin
 
-- [ ] `lib/validations/application.ts` (coverLetter ≤ 5000; resumeUrl optional URL).
-- [ ] `data/applications.ts`: `applyToJob` (candidate only, Job must be
+- [x] `lib/validations/application.ts` (coverLetter ≤ 5000; resumeUrl optional URL).
+- [x] `data/applications.ts`: `applyToJob` (candidate only, Job must be
       Published, unique per pair → friendly "already applied"),
       `listMyApplications`, `listApplicationsForMyJobs`,
       `setApplicationStatus` (employer owns the Job), `hasApplied(jobSlug)`.
-- [ ] `actions/applications.ts`: thin wrappers; candidateId from session.
-- [ ] Apply UI on `/roles/[slug]`: dynamic leaf behind `<Suspense>` — signed
+- [x] `actions/applications.ts`: thin wrappers; candidateId from session.
+- [x] Apply UI on `/roles/[slug]`: dynamic leaf behind `<Suspense>` — signed
       out → "Sign in to apply"; candidate → form or "Applied ✓"; employer/admin
       → hidden; Closed → disabled.
-- [ ] `/dashboard/applications`: candidate view (status per Job) / employer view
+- [x] `/dashboard/applications`: candidate view (status per Job) / employer view
       (grouped by Job, status select).
-- [ ] `/dashboard` home: role-aware stats (counts) and quick links.
-- [ ] `/dashboard/settings`: update name; change password (verify current).
-- [ ] `/admin` (`requireRole("admin")`): list all Jobs (close/delete any), list
+- [x] `/dashboard` home: role-aware stats (counts) and quick links.
+- [x] `/dashboard/settings`: update name; change password (verify current).
+- [x] `/admin` (`requireRole("admin")`): list all Jobs (close/delete any), list
       users (change role). Each admin action re-checks the role.
 
 **Done when:** the full two-sided flow works with ownership enforced: candidate
 applies → employer sees it and changes status → candidate sees the new status.
 
-**M5 notes:** _(decisions, deviations, out-of-scope findings)_
+**M5 notes:**
+
+- **Chunks:** `m5-1-apply` → `m5-2-triage` → `m5-3-home-settings` →
+  `m5-4-admin`.
+- **Apply:** `applySchema` takes the Job **slug** (the stub had `jobId`;
+  the cached `JobDetailDTO` carries no id), optional cover letter ≤ 5000 and
+  optional `http(s)` résumé link. `applyToJob` is `requireRole("candidate")`,
+  Published only (unknown / Draft / Closed all give "no longer accepting"),
+  and the unique `(job_id, candidate_id)` index + `ON CONFLICT DO NOTHING` is
+  the once-per-Job check — verified with two simultaneous submits (one row).
+  `hasApplied(slug)` uses `getOptionalSession()` (public page, no redirect).
+  `applyAction` ends in `refresh()`, so the panel flips to "Applied ✓".
+- **Apply panel** (`ApplyPanel`, own `<Suspense>` in the facts card):
+  Closed → disabled "Applications closed" decided from the cached DTO, so it
+  stays in the static HTML; signed out → "Sign in to apply" with
+  `callbackUrl` back to the Job; Candidate → form or "Applied ✓" + link to
+  My applications; Employer / Admin → nothing.
+- **Status labels** (`lib/application-labels.ts`): submitted → "Submitted",
+  reviewing → "In review", accepted → "Accepted", rejected → "Not selected"
+  (gentler for Candidates; the enum is unchanged).
+- **`/dashboard/applications`** is `requireRole("candidate", "employer")`;
+  Admins are redirected to `/dashboard` (the nav never linked it for them).
+  Candidate view: newest first, status badge, "Role closed" when the Job has
+  closed since.
+- **Employer triage:** `listApplicationsForMyJobs` groups by Job (Jobs
+  ordered by their newest Application; Jobs with none are omitted).
+  `ReceivedApplicationDTO` includes the Candidate's **name and email** —
+  applying shares them with that Job's Employer only (no contact info, no
+  triage). `setApplicationStatus` puts ownership in the `UPDATE … WHERE`
+  (`job_id IN (my company's Jobs)`); any status may move to any other.
+  Verified: an Employer submitting their own status form with another
+  company's Application id changes nothing.
+- **Status control:** `StatusSelect` client leaf submits on change
+  (`requestSubmit`, "Saving…" via `useFormStatus`); a `<noscript>` Save
+  button covers no-JS. The action is a plain bound form action ending in
+  `refresh()`. Cover letters render as plain text; résumé links open with
+  `rel="noopener noreferrer nofollow"` (already `http(s)`-only by zod).
+- **Note:** bound action args (`fn.bind(null, id)`) reach the client as
+  plain hidden fields in no-JS forms — they are untrusted input, which is why
+  every bound id is re-scoped in the DAL.
+- **Dashboard counts** (`data/stats.ts`, `getDashboardStats()`), scoped like
+  the pages they link to: Candidate — Applications / In review / Accepted;
+  Employer — Published roles / Drafts / Applications / Not yet reviewed
+  (`submitted`); Admin — Users / Published roles / Applications. Uses
+  `count(*) FILTER (WHERE …)`; the Employer and Admin counts are one
+  `db.batch()` round-trip.
+- **Settings:** new `data/account.ts` (`getMyProfile`, `updateMyName`,
+  `changeMyPassword`) — session user only, no id parameter. Kept out of
+  `data/users.ts` because `users.ts` is imported by `auth.ts`, which `dal.ts`
+  imports: calling `verifySession()` from it would be an import cycle.
+  Password change re-checks the current password (bcrypt), confirms the new
+  one, never echoes passwords. Email and Role are shown but not editable
+  (email change needs verification — out of scope). The JWT keeps the old
+  name until next sign-in; nothing displays it.
+- **Dev-server quirk (Windows):** twice, after editing a server module that a
+  Server Action imports, `next dev` served a stale copy (`… is not a
+function` / `undefined`). A dev restart fixed it both times; `next build`
+  was never affected. Not a code issue — noting it in case it bites again.
+- **Admin (`data/admin.ts`):** every function opens with
+  `requireFreshAdmin()` = `requireRole("admin")` **plus a DB re-read of the
+  Role** — the JWT keeps a Role until next sign-in, and for site-wide powers
+  that matters (§5). Verified: an Admin demoted mid-session is bounced from
+  `/admin` on the next request with the same cookie. Other Role changes still
+  apply at the target user's next sign-in (the page says so).
+- **Admin Jobs:** every Job, any status, with company and application count;
+  Close (Published only) and Delete (any), both with `confirm()` and the same
+  public cache tags as the Employer's writes (`publicJobTags` now exported
+  from `data/jobs.ts`). **Admin users:** change any Role except your own
+  (refused in the DAL, not just hidden — verified by posting the Admin's own
+  id). Both lists capped at 200 rows, newest first; pagination if it ever
+  matters.
+- **Wording:** the console says "Jobs", not "roles", because user Roles are
+  on the same page (CONTEXT.md); the rest of the UI keeps "roles" for Jobs.
+- `RowActionButton` promoted from `dashboard/roles/_components` to
+  `src/components/` (now used by My roles and the admin console).
 
 ---
 

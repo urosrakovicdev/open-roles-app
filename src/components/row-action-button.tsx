@@ -1,6 +1,6 @@
 "use client"
 
-// A submit button for one row action on My roles (publish / close / delete).
+// A submit button for one row action (My roles, the admin console).
 // Client only for two things: the pending state (useFormStatus) and, for
 // destructive actions, a confirm() before the form submits. The form and its
 // Server Action come from the server-rendered list.
