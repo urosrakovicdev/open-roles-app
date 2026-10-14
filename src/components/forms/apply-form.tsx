@@ -13,13 +13,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { FieldError } from "./field-error"
+import { useFocusFirstError } from "./use-focus-first-error"
 
 export function ApplyForm({ jobSlug }: { jobSlug: string }) {
   const [state, formAction, pending] = useActionState(applyAction, null)
+  const formRef = useFocusFirstError(state)
   const errors = state?.errors
 
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <form ref={formRef} action={formAction} className="space-y-4" noValidate>
       <input type="hidden" name="jobSlug" value={jobSlug} />
 
       {state?.message && (

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { FieldError } from "./field-error"
+import { useFocusFirstError } from "./use-focus-first-error"
 
 function Notice({ state }: { state: SettingsFormState }) {
   if (!state?.message) return null
@@ -34,10 +35,11 @@ function Notice({ state }: { state: SettingsFormState }) {
 
 export function ProfileForm({ name }: { name: string }) {
   const [state, formAction, pending] = useActionState(updateProfileAction, null)
+  const formRef = useFocusFirstError(state)
   const errors = state?.errors
 
   return (
-    <form action={formAction} className="space-y-5" noValidate>
+    <form ref={formRef} action={formAction} className="space-y-5" noValidate>
       <Notice state={state} />
       <div>
         <Label htmlFor="name">Name</Label>
@@ -80,10 +82,11 @@ export function PasswordForm() {
     changePasswordAction,
     null,
   )
+  const formRef = useFocusFirstError(state)
   const errors = state?.errors
 
   return (
-    <form action={formAction} className="space-y-5" noValidate>
+    <form ref={formRef} action={formAction} className="space-y-5" noValidate>
       <Notice state={state} />
       {PASSWORD_FIELDS.map((field) => (
         <div key={field.name}>

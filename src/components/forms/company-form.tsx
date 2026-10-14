@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { CompanyDTO } from "@/data/dto"
 import { FieldError } from "./field-error"
+import { useFocusFirstError } from "./use-focus-first-error"
 
 export function CompanyForm({
   company,
@@ -23,6 +24,7 @@ export function CompanyForm({
   next?: "new-role" // continue to "Post a role" after creating
 }) {
   const [state, formAction, pending] = useActionState(saveCompanyAction, null)
+  const formRef = useFocusFirstError(state)
   const errors = state?.errors
   // After a submit, show what was sent (React resets the form to defaults).
   const values = state?.fields ?? {
@@ -41,7 +43,7 @@ export function CompanyForm({
   })
 
   return (
-    <form action={formAction} className="space-y-5" noValidate>
+    <form ref={formRef} action={formAction} className="space-y-5" noValidate>
       {next && <input type="hidden" name="next" value={next} />}
 
       {state?.message && (

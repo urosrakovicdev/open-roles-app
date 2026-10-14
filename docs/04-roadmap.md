@@ -580,7 +580,7 @@ function` / `undefined`). A dev restart fixed it both times; `next build`
 
 ## M6 · Polish, deploy, operate
 
-- [ ] Loading states (`loading.tsx` or Suspense fallbacks) on dashboard routes;
+- [x] Loading states (`loading.tsx` or Suspense fallbacks) on dashboard routes;
       accessible forms (labels, `aria-invalid`, focus on first error).
 - [ ] `app/sitemap.ts` (Public Jobs + companies) and `app/robots.ts`.
 - [ ] `instrumentation.ts`: minimal `onRequestError` logging.
@@ -595,7 +595,20 @@ function` / `undefined`). A dev restart fixed it both times; `next build`
 
 **Done when:** the app is deployed and the two-sided flow works in production.
 
-**M6 notes:** _(decisions, deviations, out-of-scope findings)_
+**M6 notes:**
+
+- **Chunks:** `m6-1-polish` → `m6-2-ops` → (human: Vercel + production DB)
+  → smoke check.
+- **Loading states:** shared skeletons in `components/skeletons.tsx`
+  (`SkeletonPage`, `HeadingSkeleton`, `StatsSkeleton`, `CardListSkeleton`,
+  `FormSkeleton`) — each dashboard segment's and `/admin`'s `loading.tsx`
+  mirrors its page's layout. `<main aria-busy>` + one `sr-only` "Loading…";
+  the shapes are `aria-hidden`.
+- **Accessible forms:** labels, `aria-invalid` and `aria-describedby` were
+  already on every field (M1–M5). Added `useFocusFirstError(state)`: after a
+  failed submit, focus moves to the first `[aria-invalid="true"]` field. Wired
+  into all seven forms (login, signup, company, Job, apply, profile,
+  password).
 
 ---
 

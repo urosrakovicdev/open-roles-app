@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea"
 import type { MyJobDTO } from "@/data/dto"
 import { EMPLOYMENT_TYPES, WORK_MODES } from "@/lib/job-labels"
 import { FieldError } from "./field-error"
+import { useFocusFirstError } from "./use-focus-first-error"
 
 type JobFormProps = {
   action: (state: JobFormState, formData: FormData) => Promise<JobFormState>
@@ -48,6 +49,7 @@ function initialValues(job?: MyJobDTO): Record<FieldName, string> {
 
 export function JobForm({ action, job, submitLabel }: JobFormProps) {
   const [state, formAction, pending] = useActionState(action, null)
+  const formRef = useFocusFirstError(state)
   const errors = state?.errors
   // After a failed submit, show what was sent (React resets the form).
   const values = { ...initialValues(job), ...state?.fields }
@@ -65,7 +67,7 @@ export function JobForm({ action, job, submitLabel }: JobFormProps) {
   })
 
   return (
-    <form action={formAction} className="space-y-5" noValidate>
+    <form ref={formRef} action={formAction} className="space-y-5" noValidate>
       {state?.message && (
         <p
           role="alert"
