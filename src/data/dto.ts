@@ -9,7 +9,7 @@
 //
 // Docs: https://nextjs.org/docs/app/guides/data-security (Controlling return values)
 
-import type { companies, jobs, users } from "@/db/schema"
+import type { applications, companies, jobs, users } from "@/db/schema"
 
 type JobRow = typeof jobs.$inferSelect
 type CompanyRow = typeof companies.$inferSelect
@@ -136,5 +136,23 @@ export function toMyJobDTO(row: JobRow): MyJobDTO {
     isPublic: row.status !== "draft",
     publishedAt: row.publishedAt,
     updatedAt: row.updatedAt,
+  }
+}
+
+// ── Application ────────────────────────────────────────────────────────────
+
+export type ApplicationStatus = (typeof applications.$inferSelect)["status"]
+
+// A Candidate's own Application, with just enough of the Job to link to it.
+// Built only by data/applications.ts, scoped by candidateId = session.userId.
+export type MyApplicationDTO = {
+  id: string
+  status: ApplicationStatus
+  appliedAt: Date
+  job: {
+    slug: string
+    title: string
+    companyName: string
+    isAcceptingApplications: boolean
   }
 }

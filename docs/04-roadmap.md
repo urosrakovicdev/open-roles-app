@@ -481,13 +481,13 @@ NOTHING` + retry, no read-then-write race), and it **never changes** —
 
 ## M5 · Applications & admin
 
-- [ ] `lib/validations/application.ts` (coverLetter ≤ 5000; resumeUrl optional URL).
+- [x] `lib/validations/application.ts` (coverLetter ≤ 5000; resumeUrl optional URL).
 - [ ] `data/applications.ts`: `applyToJob` (candidate only, Job must be
       Published, unique per pair → friendly "already applied"),
       `listMyApplications`, `listApplicationsForMyJobs`,
       `setApplicationStatus` (employer owns the Job), `hasApplied(jobSlug)`.
 - [ ] `actions/applications.ts`: thin wrappers; candidateId from session.
-- [ ] Apply UI on `/roles/[slug]`: dynamic leaf behind `<Suspense>` — signed
+- [x] Apply UI on `/roles/[slug]`: dynamic leaf behind `<Suspense>` — signed
       out → "Sign in to apply"; candidate → form or "Applied ✓"; employer/admin
       → hidden; Closed → disabled.
 - [ ] `/dashboard/applications`: candidate view (status per Job) / employer view
@@ -500,7 +500,30 @@ NOTHING` + retry, no read-then-write race), and it **never changes** —
 **Done when:** the full two-sided flow works with ownership enforced: candidate
 applies → employer sees it and changes status → candidate sees the new status.
 
-**M5 notes:** _(decisions, deviations, out-of-scope findings)_
+**M5 notes:**
+
+- **Chunks:** `m5-1-apply` → `m5-2-triage` → `m5-3-home-settings` →
+  `m5-4-admin`.
+- **Apply:** `applySchema` takes the Job **slug** (the stub had `jobId`;
+  the cached `JobDetailDTO` carries no id), optional cover letter ≤ 5000 and
+  optional `http(s)` résumé link. `applyToJob` is `requireRole("candidate")`,
+  Published only (unknown / Draft / Closed all give "no longer accepting"),
+  and the unique `(job_id, candidate_id)` index + `ON CONFLICT DO NOTHING` is
+  the once-per-Job check — verified with two simultaneous submits (one row).
+  `hasApplied(slug)` uses `getOptionalSession()` (public page, no redirect).
+  `applyAction` ends in `refresh()`, so the panel flips to "Applied ✓".
+- **Apply panel** (`ApplyPanel`, own `<Suspense>` in the facts card):
+  Closed → disabled "Applications closed" decided from the cached DTO, so it
+  stays in the static HTML; signed out → "Sign in to apply" with
+  `callbackUrl` back to the Job; Candidate → form or "Applied ✓" + link to
+  My applications; Employer / Admin → nothing.
+- **Status labels** (`lib/application-labels.ts`): submitted → "Submitted",
+  reviewing → "In review", accepted → "Accepted", rejected → "Not selected"
+  (gentler for Candidates; the enum is unchanged).
+- **`/dashboard/applications`** is `requireRole("candidate", "employer")`;
+  Admins are redirected to `/dashboard` (the nav never linked it for them).
+  Candidate view: newest first, status badge, "Role closed" when the Job has
+  closed since.
 
 ---
 
