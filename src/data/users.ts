@@ -15,7 +15,7 @@ import { users } from "@/db/schema"
 import type { SignupInput } from "@/lib/validations/auth"
 
 // Same cost as the dev seed.
-const BCRYPT_COST = 10
+export const BCRYPT_COST = 10
 
 // AUTH ONLY: the login lookup. `email` must already be normalised (lowercase)
 // by loginSchema.

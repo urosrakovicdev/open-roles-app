@@ -492,8 +492,8 @@ NOTHING` + retry, no read-then-write race), and it **never changes** —
       → hidden; Closed → disabled.
 - [x] `/dashboard/applications`: candidate view (status per Job) / employer view
       (grouped by Job, status select).
-- [ ] `/dashboard` home: role-aware stats (counts) and quick links.
-- [ ] `/dashboard/settings`: update name; change password (verify current).
+- [x] `/dashboard` home: role-aware stats (counts) and quick links.
+- [x] `/dashboard/settings`: update name; change password (verify current).
 - [ ] `/admin` (`requireRole("admin")`): list all Jobs (close/delete any), list
       users (change role). Each admin action re-checks the role.
 
@@ -540,6 +540,24 @@ applies → employer sees it and changes status → candidate sees the new statu
 - **Note:** bound action args (`fn.bind(null, id)`) reach the client as
   plain hidden fields in no-JS forms — they are untrusted input, which is why
   every bound id is re-scoped in the DAL.
+- **Dashboard counts** (`data/stats.ts`, `getDashboardStats()`), scoped like
+  the pages they link to: Candidate — Applications / In review / Accepted;
+  Employer — Published roles / Drafts / Applications / Not yet reviewed
+  (`submitted`); Admin — Users / Published roles / Applications. Uses
+  `count(*) FILTER (WHERE …)`; the Employer and Admin counts are one
+  `db.batch()` round-trip.
+- **Settings:** new `data/account.ts` (`getMyProfile`, `updateMyName`,
+  `changeMyPassword`) — session user only, no id parameter. Kept out of
+  `data/users.ts` because `users.ts` is imported by `auth.ts`, which `dal.ts`
+  imports: calling `verifySession()` from it would be an import cycle.
+  Password change re-checks the current password (bcrypt), confirms the new
+  one, never echoes passwords. Email and Role are shown but not editable
+  (email change needs verification — out of scope). The JWT keeps the old
+  name until next sign-in; nothing displays it.
+- **Dev-server quirk (Windows):** twice, after editing a server module that a
+  Server Action imports, `next dev` served a stale copy (`… is not a
+function` / `undefined`). A dev restart fixed it both times; `next build`
+  was never affected. Not a code issue — noting it in case it bites again.
 
 ---
 
