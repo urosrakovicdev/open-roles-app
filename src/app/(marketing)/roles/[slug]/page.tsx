@@ -20,6 +20,7 @@ import { getPublicJobBySlug, listPublicJobSlugs } from "@/data/jobs"
 import { employmentTypeLabel, workModeLabel } from "@/lib/job-labels"
 import { formatSalary, isPlausibleSlug } from "@/lib/utils"
 import { JobPostingJsonLd } from "./_components/job-posting-json-ld"
+import { OwnerJobLink } from "./_components/owner-job-link"
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -200,7 +201,11 @@ async function RoleDetail({ params }: Props) {
               {/* TODO (M5): the Apply action — a dynamic leaf behind
                   <Suspense> (signed out → "Sign in to apply"; candidate → form
                   or "Applied ✓"; Closed → disabled). Never inside this cached
-                  data. M4 adds the owner-only "Edit this Job" the same way. */}
+                  data. */}
+              {/* Per-visitor, so its own hole; nothing shows while it loads. */}
+              <Suspense fallback={null}>
+                <OwnerJobLink slug={job.slug} />
+              </Suspense>
             </Card>
             <Card>
               <h2 className="text-sm font-semibold">{job.company.name}</h2>

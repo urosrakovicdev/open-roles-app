@@ -403,7 +403,7 @@ the role-aware `/dashboard`; `/admin` bounces non-admins.
 - [x] `/dashboard/roles` (my Jobs table with status badges + actions),
       `/dashboard/roles/new`, `/dashboard/roles/[id]/edit` (owner-scoped;
       `notFound()` if not theirs).
-- [ ] Owner-only "Edit this Job" affordance on `/roles/[slug]` as a separate
+- [x] Owner-only "Edit this Job" affordance on `/roles/[slug]` as a separate
       dynamic component behind `<Suspense>` (ADR-0003 — never in the cached DTO).
 - [x] Slugs: `slugify(title)` + short random suffix; immutable after publish.
 
@@ -463,6 +463,12 @@ NOTHING` + retry, no read-then-write race), and it **never changes** —
 - **Nav:** Employer = Overview, My roles, Company, Applications, Settings.
   "Post a role" left the nav (it highlighted together with My roles); it's
   the primary button on My roles and a dashboard quick link.
+- **Owner link on `/roles/[slug]`:** `OwnerJobLink` behind its own
+  `<Suspense fallback={null}>` inside the facts card, fed by
+  `getMyJobIdBySlug(slug)` — uncached, uses `getOptionalSession()` (no
+  redirect; anyone may view the page), returns an id only to the owning
+  Employer. Visible copy says "Edit this role" (URL-facing wording); the
+  cached `JobDetailDTO` is unchanged.
 
 ---
 

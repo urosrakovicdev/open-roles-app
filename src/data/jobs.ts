@@ -20,7 +20,7 @@ import { companies, jobs } from "@/db/schema"
 import { makeSlug } from "@/lib/utils"
 import type { JobInput } from "@/lib/validations/job"
 import { companyTag, findOwnedCompany } from "./companies"
-import { requireRole } from "./dal"
+import { getOptionalSession, requireRole } from "./dal"
 import {
   toJobCardDTO,
   toJobDetailDTO,
@@ -205,6 +205,22 @@ export async function getMyJobById(jobId: string): Promise<MyJobDTO | null> {
   const { userId } = await requireRole("employer")
   const row = await findMyJob(userId, jobId)
   return row ? toMyJobDTO(row.job) : null
+}
+
+// OWNER, on a public page: the id of the Public Job at `slug` if the visitor
+// is the Employer who owns it, else null. Never redirects (anyone may view
+// the page) and never cached — it's per-visitor. Feeds the "Edit this role"
+// link on /roles/[slug], kept out of the cached JobDetailDTO (ADR-0003).
+export async function getMyJobIdBySlug(slug: string): Promise<string | null> {
+  const session = await getOptionalSession()
+  if (session?.role !== "employer") return null
+  const [row] = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .innerJoin(companies, eq(jobs.companyId, companies.id))
+    .where(and(eq(jobs.slug, slug), eq(companies.ownerId, session.userId)))
+    .limit(1)
+  return row?.id ?? null
 }
 
 // OWNER: a new Draft under my company. Drafts aren't public, so no tags.
