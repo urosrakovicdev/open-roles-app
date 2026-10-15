@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { FieldError } from "./field-error"
+import { useFocusFirstError } from "./use-focus-first-error"
 
 const ROLE_OPTIONS = [
   {
@@ -29,11 +30,12 @@ const ROLE_OPTIONS = [
 
 export function SignupForm() {
   const [state, formAction, pending] = useActionState(signupAction, null)
+  const formRef = useFocusFirstError(state)
   const errors = state?.errors
   const role = state?.fields?.role || "candidate"
 
   return (
-    <form action={formAction} className="space-y-5" noValidate>
+    <form ref={formRef} action={formAction} className="space-y-5" noValidate>
       {state?.message && (
         <p
           role="alert"

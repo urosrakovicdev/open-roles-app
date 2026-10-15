@@ -19,7 +19,9 @@ export default function Error({
   retry: () => void
 }) {
   useEffect(() => {
-    // TODO (M6): report to the logging set up in instrumentation.ts.
+    // Server-side errors are already logged by onRequestError
+    // (instrumentation.ts) under the same digest shown below; this surfaces
+    // client-side ones in the browser console.
     console.error(error)
   }, [error])
 

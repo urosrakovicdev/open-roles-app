@@ -12,7 +12,9 @@ const nextConfig: NextConfig = {
   // should enable it. https://nextjs.org/docs/app/guides/adopting-partial-prefetching
   partialPrefetching: true,
 
-  // Self-hosting multiple instances only (not needed on Vercel):
+  // Self-hosting multiple instances only — NOT used on Vercel, which handles
+  // version skew and a shared cache itself. See docs/06-production.md
+  // (also pin NEXT_SERVER_ACTIONS_ENCRYPTION_KEY there).
   //   deploymentId: process.env.DEPLOYMENT_VERSION,
   //   cacheHandler: require.resolve("./cache-handler.js"),
   //   cacheMaxMemorySize: 0,
